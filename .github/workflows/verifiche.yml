@@ -1,0 +1,51 @@
+# Verifiche automatiche: partono a ogni modifica del ramo principale e a ogni proposta di modifica.
+# Se una verifica fallisce, la modifica non è pronta.
+name: Verifiche
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  PLAYWRIGHT: "1.63.0"
+
+jobs:
+  prove:
+    name: Prove della logica e controllo dei dati
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # Non servono dipendenze: le prove usano solo Node.
+      # Comprende: logica dell'app, versione allineata, librerie intatte, nessun dato reale, file unico costruibile.
+      - name: Prove automatiche
+        run: npm test
+
+  uso-reale:
+    name: Prova nel browser e come app desktop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Installa gli strumenti
+        run: |
+          npm ci
+          npm install --no-save "playwright@$PLAYWRIGHT"
+          npx playwright install --with-deps chromium
+      - name: Prova l'app aperta da file nel browser
+        run: node test/e2e.js
+      - name: Prova la versione in un solo file
+        run: |
+          npm run costruisci
+          node test/e2e.js dist/Ordine-Rapido.html
+      - name: Prova l'app desktop
+        run: xvfb-run -a node test/desktop.js

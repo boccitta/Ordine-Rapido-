@@ -1,0 +1,45 @@
+# ---------------------------------------------------------------------------
+# Dati reali: non devono MAI entrare nella repository.
+# Ordini, anagrafiche, listini ed esportazioni del gestionale restano sul tuo
+# computer. Gli unici file di dati ammessi sono quelli di fantasia in esempi/.
+# ---------------------------------------------------------------------------
+*.csv
+*.tsv
+*.xls
+*.xlsx
+*.xlsm
+*.ods
+*.pdf
+*.eml
+*.msg
+*.jpg
+*.jpeg
+*.heic
+*.zip
+ordine-rapido-archivio_*.json
+ordine_*.csv
+privato/
+dati/
+
+# Eccezioni: dati di esempio inventati
+!esempi/*.csv
+!esempi/*.pdf
+
+# Credenziali e configurazioni personali
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Strumenti di sviluppo e file generati
+node_modules/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/

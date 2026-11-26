@@ -1,0 +1,248 @@
+# Ordine Rapido
+
+**Ordine Rapido** trasforma gli ordini che ricevi dai clienti (PDF, Excel, foto o un semplice messaggio) in un file CSV pronto da importare nel gestionale, usando **solo codici che nel gestionale esistono già**.
+
+È pensato per gli agenti di commercio, è gratuito ed è software libero con licenza GPL-3.0. Funziona da solo sul tuo computer: non ha un server e non ha bisogno di un dominio.
+
+![La schermata di controllo di Ordine Rapido con un ordine di esempio](docs/img/controlla.png)
+
+Il progetto è nato dentro «AI TUOI ORDINI», un'iniziativa sull'uso dell'intelligenza artificiale nel lavoro quotidiano degli agenti di commercio.
+
+## Indice
+
+- [Che cosa fa](#che-cosa-fa)
+- [L'archivio del gestionale](#larchivio-del-gestionale)
+- [Lettura automatica e chiave API](#lettura-automatica-e-chiave-api)
+- [Scaricare e avviare](#scaricare-e-avviare)
+- [Aggiornare senza perdere gli archivi](#aggiornare-senza-perdere-gli-archivi)
+- [Dati e riservatezza](#dati-e-riservatezza)
+- [Il file per il gestionale](#il-file-per-il-gestionale)
+- [Provare con i dati di esempio](#provare-con-i-dati-di-esempio)
+- [Versioni e registro delle modifiche](#versioni-e-registro-delle-modifiche)
+- [Per chi sviluppa](#per-chi-sviluppa)
+- [Licenza](#licenza)
+
+## Che cosa fa
+
+Il lavoro si svolge in tre schermate.
+
+1. **Carica.** Trascini il file dell'ordine oppure incolli il messaggio del cliente. L'app lo legge e lo trascrive in righe: codice, descrizione, colli, quantità, prezzo, sconti, omaggi.
+2. **Controlla.** Ogni riga viene confrontata con l'archivio del tuo gestionale. Vedi subito che cosa è a posto e che cosa va sistemato: righe non trovate, abbinamenti da confermare, totali diversi da quelli scritti sul documento.
+3. **Esporta.** Scarichi il CSV, oppure copi le righe, e lo importi nel gestionale.
+
+Altre cose utili:
+
+- Confronta colli, pezzi e importo con i totali scritti sul documento del cliente.
+- Riconosce le righe omaggio e le esporta come sconto 100 %, prezzo zero o solo con la colonna Omaggio, a tua scelta.
+- Impara gli abbinamenti che confermi: la volta dopo, la stessa descrizione dello stesso cliente viene collegata da sola.
+- Il tracciato del file si adatta al gestionale: colonne, ordine, intestazioni, separatore, decimali, formato delle date, codifica.
+- Tema chiaro e scuro, utilizzabile anche da telefono.
+
+## L'archivio del gestionale
+
+È il cuore dell'app. **Senza archivio l'app trascrive l'ordine, ma non può garantire nulla sui codici.**
+
+Prima di lavorare esporti dal gestionale, in CSV o Excel, tre elenchi e li carichi dal pulsante **Archivio** in alto a destra:
+
+| Archivio | Colonne riconosciute | A cosa serve |
+|---|---|---|
+| **Articoli** | codice (obbligatorio), descrizione, EAN, unità di misura, casa mandante, prezzo di listino | Ogni riga dell'ordine viene collegata a un articolo esistente |
+| **Clienti** | codice (obbligatorio), ragione sociale, partita IVA | Nel file finisce il codice cliente del gestionale |
+| **Mandanti** | codice (obbligatorio), ragione sociale, partita IVA | Nel file finisce il codice della casa mandante |
+
+L'app riconosce da sola le colonne dalle intestazioni; se sbaglia, le indichi tu prima di salvare. Puoi caricare un file per volta e scegliere se sostituire l'archivio o aggiungere e aggiornare, per esempio un listino per ogni mandante.
+
+![Il pannello Archivio con articoli, clienti e mandanti caricati](docs/img/archivio.png)
+
+### Come nasce la garanzia «nessun record nuovo»
+
+- Una riga è **collegata** quando corrisponde a un solo articolo dell'archivio: per codice articolo (anche con zeri iniziali in più o in meno), per EAN, oppure per un abbinamento che hai già confermato.
+- Se lo stesso codice esiste in più mandanti, vale quello della mandante dell'ordine; se resta il dubbio, scegli tu.
+- Per le righe non trovate l'app può **proporre** un articolo simile. Una proposta non vale finché non la confermi.
+- Nel file esportato finiscono il **codice e la descrizione dell'archivio**, non quelli scritti dal cliente.
+- **Finché una riga non è collegata, l'esportazione è bloccata.** Puoi collegarla, eliminarla, oppure togliere il blocco di proposito nelle impostazioni.
+- Cliente e mandante vengono riconosciuti per partita IVA o per ragione sociale; se non vengono trovati l'app lo segnala, e nel file il loro codice resta vuoto.
+
+L'app non scrive nel gestionale e non lo interroga: lavora sugli elenchi che esporti tu. Quando aggiungi articoli o clienti nel gestionale, esporta di nuovo l'elenco e aggiorna l'archivio.
+
+### Dove restano gli archivi
+
+Sul tuo dispositivo, dentro l'app o il browser che stai usando. Non vengono inviati a nessuno. Dal pannello Archivio puoi fare una **copia di sicurezza** (archivi, abbinamenti imparati e tracciato in un solo file) e ripristinarla su un altro computer o dopo un aggiornamento.
+
+## Lettura automatica e chiave API
+
+Per leggere PDF, foto e messaggi l'app usa Claude, il modello di Anthropic, attraverso la **tua chiave API**.
+
+1. Crea una chiave nella [Console di Anthropic](https://platform.claude.com/settings/keys).
+2. Nell'app apri **Impostazioni**, incolla la chiave e premi **Salva e prova**.
+3. Scegli il modello. L'elenco viene letto dal tuo account.
+
+Cose da sapere:
+
+- **Serve internet** per la lettura automatica. Tutto il resto funziona senza connessione.
+- **Ogni lettura ha un costo**, addebitato da Anthropic all'account della chiave. Dipende dal modello e dalla lunghezza del documento: consulta i [prezzi dei modelli](https://platform.claude.com/docs/en/models/overview).
+- **Senza chiave l'app funziona lo stesso**: scrivi le righe a mano, le colleghi all'archivio, controlli ed esporti.
+- La chiave resta sul tuo dispositivo e viene inviata soltanto ad Anthropic. Non entra negli archivi, nelle copie di sicurezza né nel file esportato. Puoi anche scegliere di non farla ricordare.
+- Vengono letti al massimo le prime 6 pagine di un PDF e 12 immagini per ordine.
+
+Il modello trascrive, non decide: i codici validi sono solo quelli dell'archivio, e ogni lettura va controllata prima di esportare.
+
+## Scaricare e avviare
+
+Tutti i file si trovano nella pagina [**Releases**](../../releases/latest) della repository.
+
+| Che cosa scaricare | Per chi | Come si avvia |
+|---|---|---|
+| `Ordine-Rapido.html` | Tutti: Windows, Linux, Mac | Doppio clic: si apre nel browser. Nessuna installazione |
+| `Ordine-Rapido-…-windows-installazione.exe` | Windows | Installa l'app nel menu Start |
+| `Ordine-Rapido-…-windows-portatile.exe` | Windows | Si avvia senza installare |
+| `Ordine-Rapido-…-linux-x86_64.AppImage` | Linux | Si avvia senza installare |
+| `Ordine-Rapido-…-mac-arm64.dmg` | Mac con processore Apple (M1 e successivi) | Trascina l'app in Applicazioni |
+| `Ordine-Rapido-…-mac-x64.dmg` | Mac con processore Intel | Trascina l'app in Applicazioni |
+
+Il file `SHA256SUMS.txt` contiene le impronte di tutti i file, per verificare che lo scaricamento sia integro.
+
+### La versione portatile
+
+`Ordine-Rapido.html` è l'app intera in un solo file. Salvalo in una cartella tua e aprilo con un browser recente; è stata provata con Chrome e con i browser basati su Chromium, come Edge.
+
+Tieni il file **sempre nella stessa cartella e con lo stesso nome**: alcuni browser legano i dati salvati alla posizione del file.
+
+### Windows
+
+Al primo avvio Windows può mostrare l'avviso «PC protetto da Windows». È normale: l'app è gratuita e non ha la firma digitale a pagamento. Premi **Ulteriori informazioni** e poi **Esegui comunque**.
+
+### Mac
+
+Al primo avvio il Mac blocca l'app con un avviso di sicurezza. È normale: Ordine Rapido è gratuito e non ha la firma a pagamento di Apple. L'avviso non indica un problema dell'app.
+
+Per autorizzarla, una volta sola:
+
+1. Prova ad aprire l'app e chiudi l'avviso.
+2. Apri **Impostazioni di Sistema** e vai su **Privacy e sicurezza**.
+3. Scorri fino alla sezione Sicurezza: trovi il messaggio che Ordine Rapido è stato bloccato.
+4. Premi **Apri comunque** e conferma con la password del Mac.
+
+Sulle versioni meno recenti di macOS basta fare clic sull'app con il tasto destro, scegliere **Apri** e confermare. Dal secondo avvio l'app si apre normalmente.
+
+### Linux
+
+Rendi eseguibile il file e avvialo:
+
+```bash
+chmod +x Ordine-Rapido-*-linux-x86_64.AppImage
+./Ordine-Rapido-*-linux-x86_64.AppImage
+```
+
+Su alcune distribuzioni recenti i file AppImage richiedono il pacchetto `libfuse2`.
+
+Scarica i pacchetti soltanto dalla pagina ufficiale dei rilasci di questa repository.
+
+## Aggiornare senza perdere gli archivi
+
+1. Leggi nel [registro delle modifiche](CHANGELOG.md) la voce della nuova versione: dice che cosa cambia e che cosa devi fare.
+2. Fai una copia di sicurezza: **Archivio → Salva una copia**.
+3. Installa la nuova versione, oppure sostituisci `Ordine-Rapido.html` con quello nuovo nella stessa cartella.
+4. Se gli archivi non compaiono, ripristinali: **Archivio → Ripristina**.
+
+## Dati e riservatezza
+
+| Dato | Dove resta | Esce dal dispositivo? |
+|---|---|---|
+| Archivi di articoli, clienti e mandanti | Sul dispositivo | No, salvo quanto indicato sotto per i suggerimenti |
+| Abbinamenti imparati e tracciato del file | Sul dispositivo | No |
+| Chiave API | Sul dispositivo | Solo verso Anthropic, per autenticare le letture |
+| Documento dell'ordine (testo e immagini delle pagine) o messaggio incollato | Non viene salvato | **Sì, verso Anthropic**, solo quando premi Leggi ordine |
+| Righe non trovate e articoli candidati | — | **Sì, verso Anthropic**, per i suggerimenti di abbinamento: partono da soli dopo una lettura se restano righe non trovate, oppure quando premi Suggerisci abbinamenti. Vengono inviati descrizione, codice e prezzo della riga, e codice, descrizione, unità di misura e listino di al massimo 10 articoli candidati per riga |
+| File CSV esportato | Dove lo salvi tu | No |
+
+L'app può collegarsi a un solo indirizzo, `api.anthropic.com`, e solo se hai impostato una chiave. Non ha statistiche d'uso, pubblicità o tracciamento. Come Anthropic tratta i dati ricevuti tramite API è descritto nelle sue condizioni; valuta tu se sono adatte ai documenti dei tuoi clienti.
+
+Nella versione portatile i dati sono salvati nel browser: altre pagine HTML aperte dal tuo computer con lo stesso browser potrebbero leggerli. Apri solo file di cui ti fidi, oppure usa l'app desktop, che tiene i dati in uno spazio suo. I dettagli sono in [SECURITY.md](SECURITY.md).
+
+### Regole per questa repository
+
+Questa repository non contiene e non deve mai contenere dati reali:
+
+- anagrafiche di clienti, complete o parziali;
+- listini, prezzi, sconti e condizioni commerciali di mandanti reali;
+- ordini veri, anche se vecchi o anonimizzati a mano;
+- esportazioni del gestionale e copie di sicurezza dell'app;
+- password, chiavi API e credenziali di qualunque servizio.
+
+Un controllo automatico (`npm run controlla-dati`) blocca le modifiche che contengono chiavi, partite IVA valide, codici fiscali, IBAN, indirizzi email, numeri di telefono o file di dati fuori dalla cartella `esempi/`. Se trovi nella repository un dato che sembra reale, segnalalo senza riportarne il contenuto.
+
+## Il file per il gestionale
+
+Il file è un CSV con una riga per ogni riga d'ordine. I dati di testata (numero e data dell'ordine, cliente, mandante, pagamento, destinazione) sono ripetuti su ogni riga, così il gestionale riceve l'ordine intero.
+
+Con le impostazioni iniziali il file è fatto così:
+
+```text
+CodArticolo;Descrizione;Unimis;Quantita;Colli;Prezzo;Sconto1;Sconto2;Omaggio;NumOrdine;DataOrdine;DataConsegna;CodCliente;Cliente;PIvaCliente;CodMandante;Mandante;Pagamento;Destinazione;Note
+300101;PASSATA DI POMODORO BOTTIGLIA GR 700;PZ;120;10;0,85;5;;N;2026/0412;23/11/2026;30/11/2026;C0012;MARKET FANTASIA S.R.L.;01234500033;M001;CONSERVE FANTASIA S.P.A.;RIBA 30 GG DF FM;;
+300301;TONNO ALL'OLIO DI OLIVA GR 80 X 3;PZ;16;1;2,95;100;;S;2026/0412;23/11/2026;30/11/2026;C0012;MARKET FANTASIA S.R.L.;01234500033;M001;CONSERVE FANTASIA S.P.A.;RIBA 30 GG DF FM;;
+```
+
+Separatore punto e virgola, decimali con la virgola, date nel formato giorno/mese/anno, codifica Windows (ANSI). Tutto si cambia in **Impostazioni → Tracciato del file**. L'elenco completo delle colonne e dei formati è in [docs/FORMATI.md](docs/FORMATI.md).
+
+Il tracciato è stato pensato prendendo come riferimento GesACom versione 4.0.0.5, e la schermata Esporta ne riporta la procedura di importazione. Il principio vale per qualunque gestionale che importi ordini da CSV o righe incollate da Excel.
+
+Ordine Rapido è un progetto indipendente: non è affiliato, sponsorizzato né approvato dai produttori di GesACom o di altri gestionali. I nomi dei prodotti citati appartengono ai rispettivi proprietari.
+
+## Provare con i dati di esempio
+
+La cartella [`esempi/`](esempi/) contiene solo dati inventati: tre archivi, un ordine in PDF e un messaggio.
+
+1. Apri **Archivio** e carica `articoli-esempio.csv`, `clienti-esempio.csv` e `mandanti-esempio.csv`.
+2. Premi **Prova con un ordine di esempio**: vedi l'ordine già trascritto e collegato, senza bisogno della chiave.
+3. Con la chiave impostata, carica `ordine-esempio.pdf` e premi **Leggi ordine**.
+
+Aziende, indirizzi, codici e prezzi sono di fantasia. Le partite IVA hanno la cifra di controllo volutamente sbagliata e i codici a barre usano un prefisso riservato all'uso interno: non possono appartenere ad aziende o prodotti reali.
+
+## Versioni e registro delle modifiche
+
+Il progetto segue il **versionamento semantico**, con numeri nella forma `MAGGIORE.MINORE.CORREZIONE`:
+
+- **MAGGIORE** aumenta quando qualcosa smette di essere compatibile: le colonne o i formati iniziali del CSV, il formato degli archivi da caricare, il formato della copia di sicurezza, oppure un aggiornamento che richiede di ricaricare gli archivi.
+- **MINORE** aumenta quando arriva una funzione nuova senza rompere nulla.
+- **CORREZIONE** aumenta quando si sistema un errore senza cambiare il comportamento previsto.
+
+Il numero vive in un solo posto, `package.json`; l'app, i pacchetti e il rilascio lo prendono da lì. Ogni versione pubblicata ha un'etichetta Git `vX.Y.Z` e una pagina di rilascio.
+
+Tutte le modifiche sono descritte in [CHANGELOG.md](CHANGELOG.md), che è volutamente dettagliato. Ogni voce risponde a tre domande: **che cosa cambia, perché, che cosa devi fare**. Quando una modifica tocca il file esportato, la voce mostra il prima e il dopo. Un rilascio non parte se manca la sezione della sua versione.
+
+Regole e procedura completa: [docs/RILASCI.md](docs/RILASCI.md).
+
+## Per chi sviluppa
+
+L'app è HTML, CSS e JavaScript senza framework e senza fase di compilazione: per provarla basta aprire `app/index.html`.
+
+```text
+app/         l'app: index.html, style.css, core.js (logica), app.js (interfaccia), vendor/ (librerie e caratteri inclusi)
+desktop/     la finestra dell'app desktop (Electron)
+esempi/      dati di fantasia per provare
+scripts/     versione, file unico, controllo dei dati
+test/        prove automatiche
+docs/        formati, rilasci, sviluppo, pubblicazione
+```
+
+```bash
+npm test                 # logica, versione, librerie, controllo dei dati: non richiede installazioni
+npm ci                   # installa Electron ed electron-builder
+npm start                # avvia l'app desktop
+npm run costruisci       # crea dist/Ordine-Rapido.html
+npm run pacchetti        # crea il pacchetto per il sistema su cui ti trovi
+```
+
+Dettagli, prove nel browser e aggiornamento delle librerie: [docs/SVILUPPO.md](docs/SVILUPPO.md). Come proporre modifiche: [CONTRIBUTING.md](CONTRIBUTING.md). Come segnalare un problema di sicurezza: [SECURITY.md](SECURITY.md).
+
+## Licenza
+
+Ordine Rapido è distribuito con licenza **GNU General Public License versione 3** (GPL-3.0). Puoi usarlo, studiarlo, modificarlo e ridistribuirlo liberamente; le versioni modificate che distribuisci devono restare aperte con la stessa licenza. Il testo completo è nel file [LICENSE](LICENSE).
+
+Le librerie e i caratteri di terzi inclusi nell'app mantengono le loro licenze, elencate in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Il software è fornito così com'è, senza alcuna garanzia. Controlla sempre il file prima di importarlo nel gestionale.
+
+Copyright © 2026 Roberto Murenu, Sassari.

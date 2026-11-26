@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<!--
+  Ordine Rapido - trasforma gli ordini dei clienti in un file CSV per il gestionale, con i codici che esistono già.
+  Copyright (C) 2026 Roberto Murenu. Software libero con licenza GNU GPL versione 3, senza alcuna garanzia: vedi LICENSE.
+-->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- La pagina può collegarsi a un solo indirizzo esterno: quello di Anthropic, per la lettura automatica degli ordini. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data: blob:; connect-src https://api.anthropic.com; worker-src 'self' blob:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Ordine Rapido</title>
+<script>(function(){var r=document.documentElement,s='';try{s=(JSON.parse(localStorage.getItem('ordine-rapido-ui')||'{}')||{}).skin||''}catch(e){}r.dataset.skin=s==='dark'||s==='light'?s:(r.dataset.theme==='dark'||r.dataset.theme==='light'?r.dataset.theme:(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'))})();</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-view="carica" data-stage="none">
+<svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4m0 0-4 4m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></symbol>
+<symbol id="i-msg" viewBox="0 0 24 24"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9L11 3z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="i-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.6"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4L12 4z"/><path d="M12 10v4.5M12 17.2v.3"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19.5h14"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+<symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></symbol>
+<symbol id="i-set" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5z"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></symbol>
+<symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></symbol>
+<symbol id="i-left" viewBox="0 0 24 24"><path d="M19 12H5m0 0 5-5m-5 5 5 5"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5"/></symbol>
+<symbol id="i-rows" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></symbol>
+<symbol id="i-box" viewBox="0 0 24 24"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></symbol>
+<symbol id="i-euro" viewBox="0 0 24 24"><path d="M18 6.6A6.6 6.6 0 1 0 18 17.4M4 10.5h9M4 13.5h9"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></symbol>
+</defs></svg>
+
+<div class="app">
+<header class="bar">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
+      <rect width="40" height="40" rx="11" style="fill:var(--mark-bg)"/>
+      <g transform="skewX(-12)"><rect x="19.5" y="9" width="16" height="22" rx="3" style="fill:var(--mark-sheet)"/><path d="M23.5 15.5h8M23.5 20h8M23.5 24.5h5" style="stroke:var(--mark-ink);fill:none" stroke-width="2" stroke-linecap="round"/></g>
+      <path d="M6.5 15.5h6M4.5 20h7M7.5 24.5h4" style="stroke:var(--mark-speed);fill:none" stroke-width="2.4" stroke-linecap="round"/>
+    </svg>
+    <h1>Ordine Rapido</h1>
+    <span class="ver" id="ver"></span>
+  </div>
+  <ol class="steps" aria-label="Passaggi">
+    <li data-state="now"><button type="button" id="rail1"><span class="n" aria-hidden="true">1</span><span class="t">Carica</span></button></li>
+    <li data-state="todo"><button type="button" id="rail2"><span class="n" aria-hidden="true">2</span><span class="t">Controlla</span><span class="s" id="rail2s"></span></button></li>
+    <li data-state="todo"><button type="button" id="rail3"><span class="n" aria-hidden="true">3</span><span class="t">Esporta</span></button></li>
+  </ol>
+  <div class="bar-end">
+    <button type="button" id="archChip" class="chip" aria-haspopup="dialog" data-state="load"><span class="dot" aria-hidden="true"></span><svg class="ic chip-ic" aria-hidden="true"><use href="#i-db"/></svg><span id="archChipText" class="long">Archivio</span><span id="archChipShort" class="short">Archivio</span></button>
+    <button type="button" id="btnSet" class="icon" aria-haspopup="dialog" aria-label="Impostazioni" title="Impostazioni: lettura automatica e tracciato del file"><svg class="ic" aria-hidden="true"><use href="#i-set"/></svg></button>
+    <button type="button" id="btnTheme" class="icon" aria-label="Cambia tema"></button>
+  </div>
+</header>
+
+<main id="main">
+  <!-- 1. Carica -->
+  <section id="v1" class="view v-load" aria-labelledby="h1a">
+    <div class="intro">
+      <h2 id="h1a" tabindex="-1">Il tuo prossimo ordine, pronto in pochi passaggi.</h2>
+      <p class="lead">Carica quello che ti ha mandato il cliente. Ordine Rapido lo trascrive in righe con i codici del tuo gestionale.</p>
+    </div>
+    <div id="openNote" class="note" hidden>Hai già un ordine aperto. Se ne leggi un altro, prende il suo posto. <button type="button" class="link" id="btnResume">Torna all'ordine aperto</button></div>
+    <div id="keyNote" class="note" hidden>La lettura automatica non è ancora attiva: serve la tua chiave API di Anthropic. <button type="button" class="link" id="btnKeyNote">Imposta la chiave</button></div>
+    <div id="inputs" class="inputs">
+      <div id="drop" class="card drop">
+        <div class="tiles-art" aria-hidden="true"><span class="fileart" data-t="PDF" style="--c:#E5484D"></span><span class="fileart" data-t="XLS" style="--c:#1F9D61"></span><span class="fileart" data-t="FOTO" style="--c:#3B7BF6"></span></div>
+        <strong>Trascina qui il file dell'ordine</strong>
+        <span>PDF, Excel, CSV o foto. Anche più file dello stesso ordine.</span>
+        <ul id="fileList" class="files"></ul>
+        <button type="button" id="btnPick"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg><span id="btnPickT">Scegli file</span></button>
+        <input id="fileInput" type="file" multiple accept=".pdf,.xlsx,.xls,.csv,.txt,image/*" hidden>
+      </div>
+      <div class="card say">
+        <label for="msg"><svg class="ic" aria-hidden="true"><use href="#i-msg"/></svg>Oppure incolla il messaggio</label>
+        <textarea id="msg" placeholder="Es. Ciao, mandami 10 cartoni di passata e 4 di tonno all'olio, consegna giovedì"></textarea>
+      </div>
+    </div>
+    <div id="busy" class="card busy" hidden>
+      <div class="scanner" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div>
+        <h3>Sto leggendo l'ordine</h3>
+        <p id="busyFiles"></p>
+      </div>
+    </div>
+    <p id="readStatus" class="status" role="status"></p>
+  </section>
+
+  <!-- 2. Controlla -->
+  <section id="v2" class="view v-check" aria-labelledby="h2a" hidden>
+    <div class="vhead">
+      <h2 id="h2a" tabindex="-1">Controlla l'ordine</h2>
+      <span id="verdict" class="verdict ok"></span>
+      <div id="oks" class="oks"></div>
+    </div>
+    <div id="banner" class="banner" hidden></div>
+    <div class="tiles">
+      <div class="card tile" id="tile-righe"><span class="bubble"><svg class="ic" aria-hidden="true"><use href="#i-rows"/></svg></span><div><div class="val" id="t-righe">0</div><div class="lab">righe <span class="cmp" id="t-gifts"></span></div></div></div>
+      <div class="card tile" id="tile-colli"><span class="bubble"><svg class="ic" aria-hidden="true"><use href="#i-box"/></svg></span><div><div class="val" id="t-colli">0</div><div class="lab">colli <span class="cmp" id="c-colli"></span></div></div></div>
+      <div class="card tile" id="tile-pezzi"><span class="bubble"><svg class="ic" aria-hidden="true"><use href="#i-grid"/></svg></span><div><div class="val" id="t-pezzi">0</div><div class="lab">pezzi <span class="cmp" id="c-pezzi"></span></div></div></div>
+      <div class="card tile" id="tile-merce"><span class="bubble"><svg class="ic" aria-hidden="true"><use href="#i-euro"/></svg></span><div><div class="val" id="t-merce">0</div><div class="lab">di merce <span class="cmp" id="c-imp"></span></div></div></div>
+    </div>
+    <div id="issues" class="issues" hidden>
+      <ul id="checks" aria-live="polite"></ul>
+      <div id="notesCap" class="cap" hidden><svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg>Note di lettura</div>
+      <ul id="notes" hidden></ul>
+    </div>
+
+    <div class="card">
+      <div class="chead">
+        <h3>Dati dell'ordine</h3>
+        <span id="srcInfo" class="src"></span>
+        <span class="grow"></span>
+        <button type="button" id="origBox" class="small ghost" aria-haspopup="dialog" hidden><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg>Vedi il documento</button>
+        <button type="button" id="btnHeadEdit" class="small" aria-controls="headEdit" aria-expanded="false">Modifica</button>
+      </div>
+      <dl id="headView" class="kv"></dl>
+      <div id="headEdit" class="hgrid" hidden>
+        <div class="field w3"><label for="h-mandante">Casa mandante</label><input type="text" id="h-mandante"></div>
+        <div class="field"><label for="h-mandante_cod">Codice mandante</label><input type="text" id="h-mandante_cod" placeholder="facoltativo"></div>
+        <div class="field w3"><label for="h-cliente">Cliente</label><input type="text" id="h-cliente"></div>
+        <div class="field"><label for="h-cliente_cod">Codice cliente</label><input type="text" id="h-cliente_cod" placeholder="facoltativo"></div>
+        <div class="field"><label for="h-piva">P.IVA cliente</label><input type="text" id="h-piva"></div>
+        <div class="field"><label for="h-numero">N. ordine del cliente</label><input type="text" id="h-numero"></div>
+        <div class="field"><label for="h-data">Data ordine</label><input type="date" id="h-data"></div>
+        <div class="field"><label for="h-consegna">Consegna richiesta</label><input type="date" id="h-consegna"></div>
+        <div class="field w6"><label for="h-pagamento">Pagamento</label><input type="text" id="h-pagamento"></div>
+        <div class="field w6"><label for="h-destinazione">Destinazione merce</label><input type="text" id="h-destinazione"></div>
+        <div class="field w6"><label for="h-note">Note</label><input type="text" id="h-note"></div>
+        <div class="field"><label for="h-tot_imponibile">Importo sul documento</label><input type="text" id="h-tot_imponibile" inputmode="decimal" placeholder="per il controllo"></div>
+        <div class="field"><label for="h-tot_colli">Colli sul documento</label><input type="text" id="h-tot_colli" inputmode="decimal"></div>
+        <div class="field"><label for="h-tot_pezzi">Pezzi sul documento</label><input type="text" id="h-tot_pezzi" inputmode="decimal"></div>
+      </div>
+    </div>
+
+    <div class="card rows-card">
+      <div class="chead">
+        <h3>Righe <span class="n" id="rowsN"></span></h3>
+        <span class="grow"></span>
+        <button id="btnSuggest" type="button" class="small" hidden><svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg>Suggerisci abbinamenti</button>
+        <button id="btnCols" type="button" class="small ghost" aria-pressed="false" hidden>Mostra le colonne vuote</button>
+        <button id="btnAdd" type="button" class="small"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Aggiungi riga</button>
+      </div>
+      <p id="rowStatus" class="status" role="status"></p>
+      <div class="tablewrap">
+        <table id="rowsTable">
+          <thead><tr id="thead"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div id="finder" class="finder" hidden>
+        <div class="head"><strong id="finderTitle"></strong><button type="button" id="finderClose" class="mini">Chiudi</button></div>
+        <div class="field"><label for="finderQ">Cerca nell'archivio per descrizione o codice</label><input type="text" id="finderQ" autocomplete="off"></div>
+        <ul id="finderList"></ul>
+        <p id="finderEmpty" class="status"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Esporta -->
+  <section id="v3" class="view v-export" aria-labelledby="h3a" hidden>
+    <div class="exgrid">
+      <div class="card ready" id="readyCard" data-state="ready">
+        <span class="badge-xl" id="readyIcon" aria-hidden="true"></span>
+        <h2 id="h3a" tabindex="-1">Il file è pronto</h2>
+        <p id="readyText"></p>
+        <p id="fileName"></p>
+        <p id="sum" class="sum"></p>
+        <div class="row">
+          <button id="btnDownload" class="primary big" type="button"><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg>Scarica CSV</button>
+          <button id="btnTsv" type="button" title="Copia le righe, pronte da incollare nel gestionale con Importa righe da Excel"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Copia righe</button>
+          <button id="btnCopyCsv" type="button" class="ghost">Copia CSV</button>
+          <button id="btnFix" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg>Torna al controllo</button>
+        </div>
+        <p id="expStatus" class="status" role="status"></p>
+      </div>
+      <div class="card howto">
+        <h3>Come importarlo nel gestionale</h3>
+        <div class="seg" role="group" aria-label="Modo di importare">
+          <button type="button" id="howFile" aria-pressed="true">Con il file</button>
+          <button type="button" id="howRows" aria-pressed="false">Con le righe copiate</button>
+        </div>
+        <ol id="howFileList">
+          <li><span>Premi <b>Scarica CSV</b> e salva il file.</span></li>
+          <li><span>Nel gestionale apri l'importazione degli ordini da file e scegli il file appena salvato.</span></li>
+          <li><span>In GesACom: apri l'ordine, fai clic destro nell'area delle righe e scegli <b>importa Righe da File CSV</b>.</span></li>
+        </ol>
+        <ol id="howRowsList" hidden>
+          <li><span>In GesACom apri <b>Documenti → Ordini/Conferme d'Ordine</b> (F4), premi <b>Nuovo</b> e scegli Casa Mandante e Cliente.</span></li>
+          <li><span>Qui premi <b>Copia righe</b>.</span></li>
+          <li><span>In GesACom fai clic destro nell'area delle righe e scegli <b>Importa righe da Excel</b>.</span></li>
+          <li><span>Nella finestra Acquisizione Righe Documento trascina i campi sulle colonne, poi <b>Importa Righe</b> e <b>Salva</b>.</span></li>
+        </ol>
+        <p class="fine">Procedura dal <a href="https://www.gesacom.it/manuale/argomento.html?slug=import-dett-righe-excel" target="_blank" rel="noopener noreferrer">manuale GesACom</a>. Le colonne e il formato del file si cambiano nel <button type="button" class="link" id="btnSet2">tracciato</button>.</p>
+      </div>
+    </div>
+    <details class="card pv">
+      <summary>Anteprima del file</summary>
+      <pre id="preview" aria-label="Anteprima del file CSV" tabindex="0"></pre>
+    </details>
+  </section>
+</main>
+
+<footer class="actions">
+  <div data-for="1">
+    <button type="button" id="btnExample" class="ghost">Prova con un ordine di esempio</button>
+    <button type="button" id="btnManual" class="ghost">Scrivi le righe a mano</button>
+    <span class="grow"></span>
+    <button id="btnStop" type="button" hidden>Ferma</button>
+    <button id="btnRead" class="primary big" type="button"><svg class="ic" aria-hidden="true"><use href="#i-spark"/></svg><span id="btnReadT">Leggi ordine</span></button>
+  </div>
+  <div data-for="2" hidden>
+    <button type="button" id="btnBack1" class="ghost"><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg>Indietro</button>
+    <span class="grow"></span>
+    <button type="button" id="btnNext" class="primary big">Continua<svg class="ic" aria-hidden="true"><use href="#i-right"/></svg></button>
+  </div>
+  <div data-for="3" hidden>
+    <button type="button" id="btnBack2" class="ghost"><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg>Indietro</button>
+    <span class="grow"></span>
+    <button id="btnNew" type="button" class="big"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Nuovo ordine</button>
+  </div>
+</footer>
+</div>
+
+<dialog id="archDlg" class="drawer" aria-labelledby="h0a">
+  <div class="drawer-in">
+    <div class="dhead"><h2 id="h0a">Archivio del gestionale</h2><button type="button" id="archClose">Chiudi</button></div>
+    <p class="how">Esporta dal gestionale, in CSV o Excel, l'elenco degli articoli, dei clienti e delle case mandanti e caricali qui. Da quel momento nel file esportato finiscono solo codici che esistono già: l'importazione non crea record nuovi.</p>
+    <div class="arch">
+      <div class="line"><div><b>Articoli</b> <span id="artInfo">non caricati</span></div><button type="button" id="btnArt">Carica export articoli</button></div>
+      <div class="line"><div><b>Clienti</b> <span id="cliInfo">non caricati</span></div><button type="button" id="btnCli">Carica export clienti</button></div>
+      <div class="line"><div><b>Mandanti</b> <span id="manInfo">non caricati</span></div><button type="button" id="btnMan">Carica export mandanti</button></div>
+      <div class="line"><div><b>Abbinamenti imparati</b> <span id="aliasInfo">0</span></div><button type="button" id="btnAliasClear" class="mini">Azzera</button></div>
+      <div class="line"><div><b>Copia di sicurezza</b> <span>archivi, abbinamenti e tracciato in un solo file</span></div><div class="row"><button type="button" id="btnBackup" class="small">Salva una copia</button><button type="button" id="btnRestore" class="small">Ripristina</button></div></div>
+    </div>
+    <input id="archFile" type="file" accept=".csv,.txt,.tsv,.xlsx,.xls" hidden>
+    <input id="backupFile" type="file" accept=".json,application/json" hidden>
+    <div id="mapper" class="mapper" hidden></div>
+    <p id="archStatus" class="status" role="status"></p>
+    <p id="archMode" class="status"></p>
+  </div>
+</dialog>
+
+<dialog id="setDlg" class="drawer" aria-labelledby="hSet">
+  <div class="drawer-in">
+    <div class="dhead"><h2 id="hSet">Impostazioni</h2><button type="button" id="setClose">Chiudi</button></div>
+    <section class="sec" aria-labelledby="hAi">
+      <h3 id="hAi">Lettura automatica</h3>
+      <p id="aiClaude" class="how" hidden>Qui gli ordini vengono letti da Claude attraverso questa pagina: non serve nessuna chiave.</p>
+      <div id="aiOwn" class="set">
+        <p class="how">Per leggere PDF, foto e messaggi l'app usa Claude con la <b>tua chiave API di Anthropic</b>. Il documento dell'ordine viene inviato ad Anthropic da questo dispositivo; il costo di ogni lettura è a carico dell'account della chiave. Senza chiave puoi comunque scrivere le righe a mano, collegarle all'archivio ed esportare.</p>
+        <div class="field"><label for="ai-key">Chiave API</label>
+          <div class="keyrow"><input type="password" id="ai-key" autocomplete="off" spellcheck="false" placeholder="sk-ant-…"><button type="button" id="ai-show" class="small" aria-pressed="false">Mostra</button></div></div>
+        <div class="field"><label for="ai-model">Modello</label><select id="ai-model"></select></div>
+        <label class="check"><input type="checkbox" id="ai-remember"> Ricorda la chiave su questo dispositivo</label>
+        <div class="row"><button type="button" id="btnAiSave" class="primary">Salva e prova</button><button type="button" id="btnAiForget" hidden>Rimuovi la chiave</button></div>
+        <p id="aiStatus" class="status" role="status"></p>
+        <p class="fine">La chiave resta su questo dispositivo e viene inviata soltanto ad Anthropic. Non finisce negli archivi, nelle copie di sicurezza né nel file esportato.</p>
+      </div>
+    </section>
+    <h3 id="hTrac" class="sech" tabindex="-1">Tracciato del file</h3>
+    <p class="how">Come deve essere fatto il file per il tuo gestionale: colonne, separatore, formato dei numeri. Resta salvato su questo dispositivo.</p>
+    <div class="set">
+      <div class="opts">
+        <div class="field"><label for="p-sep">Separatore</label>
+          <select id="p-sep"><option value=";">Punto e virgola ;</option><option value=",">Virgola ,</option><option value="&#9;">Tabulazione</option><option value="|">Barra |</option></select></div>
+        <div class="field"><label for="p-dec">Decimali</label>
+          <select id="p-dec"><option value=",">Virgola 7,20</option><option value=".">Punto 7.20</option></select></div>
+        <div class="field"><label for="p-date">Date</label>
+          <select id="p-date"><option value="dmy">19/08/2026</option><option value="iso">2026-08-19</option><option value="compact">19082026</option></select></div>
+        <div class="field"><label for="p-enc">Codifica file</label>
+          <select id="p-enc"><option value="cp1252">Windows (ANSI)</option><option value="utf8">UTF-8</option></select></div>
+        <div class="field"><label for="p-um">Unità di misura se manca</label><input type="text" id="p-um" maxlength="6"></div>
+        <div class="field"><label for="p-omaggi">Righe omaggio</label>
+          <select id="p-omaggi"><option value="sconto100">Sconto 100%</option><option value="prezzo0">Prezzo 0</option><option value="invariato">Solo colonna Omaggio</option></select></div>
+        <div class="field"><label for="p-descSrc">Descrizione articolo</label>
+          <select id="p-descSrc"><option value="gesacom">Dall'archivio del gestionale</option><option value="doc">Dal documento del cliente</option></select></div>
+      </div>
+      <label class="check"><input type="checkbox" id="p-header"> Prima riga con i nomi delle colonne</label>
+      <label class="check"><input type="checkbox" id="p-allowUnlinked"> Permetti di esportare righe non collegate all'archivio (rischio di codici nuovi nel gestionale)</label>
+      <div class="row">
+        <span class="lbl">Colonne nel file</span>
+        <button id="btnPresetRows" class="mini" type="button">Solo righe</button>
+        <button id="btnPresetFull" class="mini" type="button">Testata + righe</button>
+      </div>
+      <ul id="cols" class="cols"></ul>
+    </div>
+    <p class="about"><span id="aboutVer">Ordine Rapido</span>. Software libero con licenza GNU GPL versione 3, distribuito senza alcuna garanzia: controlla sempre il file prima di importarlo.<span id="aboutSrcBox" hidden> <a id="aboutSrc" href="#" target="_blank" rel="noopener noreferrer">Codice sorgente</a>.</span></p>
+  </div>
+</dialog>
+
+<dialog id="origDlg" class="sheetdlg" aria-labelledby="hOrig">
+  <div class="drawer-in">
+    <div class="dhead"><h2 id="hOrig">Il documento del cliente</h2><button type="button" id="origClose">Chiudi</button></div>
+    <div id="orig" class="orig"></div>
+  </div>
+</dialog>
+
+<script src="versione.js"></script>
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

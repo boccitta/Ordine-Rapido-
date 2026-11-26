@@ -1,0 +1,36 @@
+name: Proposta
+description: Un'idea, un gestionale da supportare meglio, una funzione che manca
+labels: [proposta]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Non allegare dati reali.** Per gli esempi usa nomi e numeri inventati.
+  - type: textarea
+    id: bisogno
+    attributes:
+      label: Che cosa ti serve fare
+      description: Racconta la situazione di lavoro, più che la soluzione.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Come lo immagini
+  - type: input
+    id: gestionale
+    attributes:
+      label: Gestionale che usi, se c'entra
+  - type: textarea
+    id: tracciato
+    attributes:
+      label: Com'è fatto il file che il tuo gestionale importa, se c'entra
+      description: Nomi e ordine delle colonne, separatore, formato di date e numeri. Dati inventati.
+      render: text
+  - type: checkboxes
+    id: dati
+    attributes:
+      label: Conferma
+      options:
+        - label: Questa proposta non contiene dati reali di clienti, mandanti, prezzi o credenziali.
+          required: true

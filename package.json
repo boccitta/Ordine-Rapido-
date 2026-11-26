@@ -1,0 +1,100 @@
+{
+  "name": "ordine-rapido",
+  "productName": "Ordine Rapido",
+  "version": "1.0.0",
+  "description": "Trasforma gli ordini dei clienti in un file CSV per il gestionale, usando solo codici che esistono già.",
+  "author": "Roberto Murenu",
+  "license": "GPL-3.0-only",
+  "private": true,
+  "main": "desktop/main.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/core.test.js test/progetto.test.js && node scripts/controlla-dati.js",
+    "test:e2e": "node test/e2e.js",
+    "controlla-dati": "node scripts/controlla-dati.js",
+    "versione": "node scripts/versione.js",
+    "version": "node scripts/versione.js && git add app/versione.js",
+    "costruisci": "node scripts/costruisci.js",
+    "note-rilascio": "node scripts/note-rilascio.js",
+    "pacchetti": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.5.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "it.ordinerapido.app",
+    "productName": "Ordine Rapido",
+    "copyright": "Copyright (C) 2026 Roberto Murenu - GPL-3.0",
+    "artifactName": "Ordine-Rapido-${version}-${os}-${arch}.${ext}",
+    "publish": null,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "app/**/*",
+      "desktop/**/*",
+      "package.json",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "Ordine-Rapido-${version}-windows-installazione.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Ordine Rapido"
+    },
+    "portable": {
+      "artifactName": "Ordine-Rapido-${version}-windows-portatile.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Office",
+      "artifactName": "Ordine-Rapido-${version}-linux-${arch}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.business",
+      "identity": "-",
+      "artifactName": "Ordine-Rapido-${version}-mac-${arch}.${ext}",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    }
+  }
+}

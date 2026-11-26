@@ -1,0 +1,58 @@
+name: Errore
+description: Qualcosa non funziona come dovrebbe
+labels: [errore]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Non allegare dati reali.** Niente ordini veri, esportazioni del gestionale, listini, copie di sicurezza o chiavi API.
+        Per mostrare il problema usa i file della cartella `esempi/` oppure riscrivi il caso con nomi e numeri inventati.
+  - type: input
+    id: versione
+    attributes:
+      label: Versione dell'app
+      description: È scritta accanto al nome, in alto a sinistra.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: forma
+    attributes:
+      label: Come usi l'app
+      options:
+        - Versione portatile (Ordine-Rapido.html) nel browser
+        - App desktop per Windows
+        - App desktop per Mac
+        - App desktop per Linux
+    validations:
+      required: true
+  - type: input
+    id: sistema
+    attributes:
+      label: Sistema e browser
+      placeholder: "Windows 11, Chrome"
+  - type: textarea
+    id: passi
+    attributes:
+      label: Che cosa hai fatto
+      description: I passi per arrivare all'errore, uno per riga.
+    validations:
+      required: true
+  - type: textarea
+    id: atteso
+    attributes:
+      label: Che cosa ti aspettavi e che cosa è successo
+    validations:
+      required: true
+  - type: textarea
+    id: esempio
+    attributes:
+      label: Riga o file di esempio, con dati inventati
+      render: text
+  - type: checkboxes
+    id: dati
+    attributes:
+      label: Conferma
+      options:
+        - label: Questa segnalazione non contiene dati reali di clienti, mandanti, prezzi o credenziali.
+          required: true

@@ -1,0 +1,9 @@
+# Fine riga uniforme per il codice; i file di esempio in CSV tengono il formato di Windows (CRLF), come quelli dei gestionali.
+* text=auto eol=lf
+esempi/*.csv text eol=crlf
+*.png binary
+*.pdf binary
+*.woff2 binary
+# Librerie di terzi: non vanno modificate a mano e non contano nelle statistiche del progetto.
+app/vendor/** linguist-vendored
+app/vendor/*.js -text

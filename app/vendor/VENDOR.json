@@ -1,0 +1,61 @@
+{
+  "nota": "Librerie e caratteri di terzi inclusi nell'app, copiati senza modifiche dai pacchetti indicati. Le impronte SHA-256 sono verificate da npm test. Come aggiornarli: docs/SVILUPPO.md.",
+  "file": [
+    {
+      "file": "pdf.min.js",
+      "pacchetto": "pdfjs-dist",
+      "versione": "3.11.174",
+      "origine": "npm: pdfjs-dist@3.11.174, build/pdf.min.js",
+      "licenza": "Apache-2.0",
+      "sha256": "5b5799e6f8c680663207ac5b42ee14eed2a406fa7af48f50c154f0c0b1566946"
+    },
+    {
+      "file": "pdf.worker.min.js",
+      "pacchetto": "pdfjs-dist",
+      "versione": "3.11.174",
+      "origine": "npm: pdfjs-dist@3.11.174, build/pdf.worker.min.js",
+      "licenza": "Apache-2.0",
+      "sha256": "feabdf309770ed24bba31a5467836cdc8cf639c705af27d52b585b041bb8527b"
+    },
+    {
+      "file": "xlsx.full.min.js",
+      "pacchetto": "xlsx (SheetJS Community Edition)",
+      "versione": "0.18.5",
+      "origine": "npm: xlsx@0.18.5, dist/xlsx.full.min.js",
+      "licenza": "Apache-2.0",
+      "sha256": "c9506197caf809a075b6dee1da0d36fb19da7158ffe8a88e7b0c96c5d8623c99"
+    },
+    {
+      "file": "fonts/figtree-latin-wght-normal.woff2",
+      "pacchetto": "@fontsource-variable/figtree",
+      "versione": "5.3.0",
+      "origine": "npm: @fontsource-variable/figtree@5.3.0, files/",
+      "licenza": "OFL-1.1",
+      "sha256": "4ba7d3d096695818fe0686be4f1e82c6b05134e18a22260336130335027462dd"
+    },
+    {
+      "file": "fonts/figtree-latin-wght-italic.woff2",
+      "pacchetto": "@fontsource-variable/figtree",
+      "versione": "5.3.0",
+      "origine": "npm: @fontsource-variable/figtree@5.3.0, files/",
+      "licenza": "OFL-1.1",
+      "sha256": "7242fa62d13d46172816b266f03c027999faa3755a52c2124bc2c440f6f4b983"
+    },
+    {
+      "file": "fonts/montserrat-latin-wght-normal.woff2",
+      "pacchetto": "@fontsource-variable/montserrat",
+      "versione": "5.3.0",
+      "origine": "npm: @fontsource-variable/montserrat@5.3.0, files/",
+      "licenza": "OFL-1.1",
+      "sha256": "06b16db7a969135d48d38c49183be7fb88d4452e2a3011957c7851941f4e4879"
+    },
+    {
+      "file": "fonts/montserrat-latin-wght-italic.woff2",
+      "pacchetto": "@fontsource-variable/montserrat",
+      "versione": "5.3.0",
+      "origine": "npm: @fontsource-variable/montserrat@5.3.0, files/",
+      "licenza": "OFL-1.1",
+      "sha256": "0eb22e3d769a66a92dbd82e3aefa5740e5bc21afa4485f62f92b22656d49182a"
+    }
+  ]
+}

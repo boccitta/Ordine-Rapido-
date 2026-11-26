@@ -1,0 +1,152 @@
+# Rilascio di una versione.
+#
+# Come si usa (guida completa in docs/RILASCI.md):
+#   su GitHub: scheda "Actions" -> "Rilascio" -> "Run workflow".
+#
+# Che cosa fa:
+#   1. ripete tutte le verifiche e controlla che versione e registro delle modifiche siano allineati;
+#   2. costruisce l'app per Windows, Linux e Mac e avvia davvero ogni pacchetto per provarlo;
+#   3. costruisce la versione portatile in un solo file;
+#   4. prepara una BOZZA di rilascio con i file e con le note prese da CHANGELOG.md.
+# La bozza non è visibile a nessuno finché non premi "Publish release": è lì che nasce l'etichetta vX.Y.Z.
+# Il rilascio parte solo a mano: così i file di una versione pubblicata non vengono mai ricostruiti né sostituiti.
+name: Rilascio
+
+on:
+  workflow_dispatch:
+    inputs:
+      salta_prova_desktop:
+        description: "Salta la prova dei pacchetti desktop (solo se è la prova stessa a essere guasta)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rilascio
+  cancel-in-progress: false
+
+env:
+  PLAYWRIGHT: "1.63.0"
+
+jobs:
+  verifiche:
+    name: Verifiche prima del rilascio
+    runs-on: ubuntu-latest
+    outputs:
+      versione: ${{ steps.versione.outputs.versione }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Prove automatiche e controllo dei dati
+        run: npm test
+      - name: Versione, app e registro delle modifiche allineati
+        run: node scripts/versione.js --controlla
+      - name: Legge la versione
+        id: versione
+        run: echo "versione=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: La versione non deve essere già stata pubblicata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSIONE: ${{ steps.versione.outputs.versione }}
+        run: |
+          if [ "$(gh release view "v$VERSIONE" --json isDraft --jq .isDraft 2>/dev/null)" = "false" ]; then
+            echo "::error::La versione $VERSIONE è già stata pubblicata. Aumenta il numero di versione in package.json e aggiungi la sezione in CHANGELOG.md (vedi docs/RILASCI.md)."
+            exit 1
+          fi
+
+  pacchetti:
+    name: Pacchetto per ${{ matrix.nome }}
+    needs: verifiche
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - nome: Windows
+            os: windows-latest
+            eseguibile: "dist/win-unpacked/Ordine Rapido.exe"
+            file: "dist/Ordine-Rapido-*.exe"
+          - nome: Linux
+            os: ubuntu-latest
+            eseguibile: "dist/linux-unpacked/ordine-rapido"
+            file: "dist/Ordine-Rapido-*.AppImage"
+          - nome: Mac
+            os: macos-latest
+            eseguibile: "dist/mac-arm64/Ordine Rapido.app/Contents/MacOS/Ordine Rapido"
+            file: "dist/Ordine-Rapido-*.dmg"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Installa gli strumenti
+        run: npm ci
+      # Scrive nell'app la versione e l'indirizzo di questa repository (il collegamento "Codice sorgente").
+      - name: Versione e indirizzo del codice sorgente
+        run: node scripts/versione.js
+      - name: Costruisce il pacchetto
+        run: npx electron-builder --publish never
+      - name: Avvia il pacchetto e lo prova
+        if: ${{ !inputs.salta_prova_desktop }}
+        shell: bash
+        env:
+          ESEGUIBILE: ${{ matrix.eseguibile }}
+        run: |
+          npm install --no-save "playwright@$PLAYWRIGHT"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a node test/desktop.js "$ESEGUIBILE"
+          else
+            node test/desktop.js "$ESEGUIBILE"
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pacchetto-${{ matrix.nome }}
+          path: ${{ matrix.file }}
+          if-no-files-found: error
+          retention-days: 7
+
+  bozza:
+    name: Bozza di rilascio
+    needs: [verifiche, pacchetti]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSIONE: ${{ needs.verifiche.outputs.versione }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Versione portatile in un solo file
+        run: |
+          node scripts/versione.js
+          npm run costruisci
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: pacchetto-*
+          merge-multiple: true
+          path: dist
+      - name: Note di rilascio e impronte dei file
+        run: |
+          node scripts/note-rilascio.js > note.md
+          cd dist
+          sha256sum Ordine-Rapido.html Ordine-Rapido-*.exe Ordine-Rapido-*.AppImage Ordine-Rapido-*.dmg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Crea o aggiorna la bozza
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ETICHETTA="v$VERSIONE"
+          FILE=(dist/Ordine-Rapido.html dist/Ordine-Rapido-*.exe dist/Ordine-Rapido-*.AppImage dist/Ordine-Rapido-*.dmg dist/SHA256SUMS.txt)
+          if gh release view "$ETICHETTA" > /dev/null 2>&1; then
+            gh release upload "$ETICHETTA" "${FILE[@]}" --clobber
+            gh release edit "$ETICHETTA" --title "Ordine Rapido $VERSIONE" --notes-file note.md
+          else
+            gh release create "$ETICHETTA" "${FILE[@]}" --draft --target "$GITHUB_SHA" --title "Ordine Rapido $VERSIONE" --notes-file note.md
+          fi
+          echo "Bozza pronta: controllala nella pagina Releases e premi Publish release." >> "$GITHUB_STEP_SUMMARY"
