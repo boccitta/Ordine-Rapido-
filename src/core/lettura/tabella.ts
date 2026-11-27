@@ -141,7 +141,10 @@ function formatShare(f: Format, cols: readonly Column[]): number {
 function headerOf(l: Line, formats: readonly Format[]): { cols: Column[]; format: number } | null {
   if (l.cells.length < 2 && !(l.cells[0] && /\s/.test(l.cells[0].s))) return null;
   let best: { cols: Column[]; format: number } | null = null, bestShare = 0.7;
+  /* prima un controllo veloce: almeno metà dei nomi del formato scritti tali e quali nella riga; poi quello tollerante */
+  const plain = formats.length ? ' ' + l.cells.map(c => bare(c.s)).join(' ') + ' ' : '';
   formats.forEach((f, i) => {
+    if (f.firma.filter(n => plain.indexOf(' ' + n + ' ') >= 0).length < Math.ceil(f.firma.length / 2)) return;
     const { cols } = headerColumns(l, f.colonne), share = formatShare(f, cols);
     if (share >= bestShare && orderTable(cols)) { best = { cols, format: i }; bestShare = share; }
   });
