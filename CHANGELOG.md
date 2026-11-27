@@ -30,11 +30,41 @@ Prima versione pubblica e open source.
 - **Perché.** L'app deve poter essere usata da chiunque senza un sito, un dominio o un account su un servizio di pubblicazione.
 - **Che cosa devi fare.** Scegli il file adatto al tuo sistema seguendo il [README](README.md#scaricare-e-avviare). Al primo avvio Windows e Mac mostrano un avviso, perché i pacchetti non hanno una firma digitale a pagamento: il README spiega come autorizzarli.
 
-#### Lettura automatica con la propria chiave API
+#### Gli ordini si leggono sul dispositivo, senza chiave API
 
-- **Che cosa cambia.** In **Impostazioni → Lettura automatica** si inserisce la propria chiave API di Anthropic. L'app la verifica, legge dall'account l'elenco dei modelli disponibili e propone quale usare. Finché la chiave manca, la schermata iniziale lo dice e porta alle impostazioni. La chiave si può mostrare, rimuovere, oppure non far ricordare affatto.
+- **Che cosa cambia.** L'app legge gli ordini da sola: Excel e CSV, PDF con testo, messaggi e mail, foto e scansioni. Non serve una chiave, non costa nulla e niente esce dal dispositivo. Sono regole ancorate all'archivio: riconoscono la tabella dell'ordine dai nomi delle colonne, incolonnano i numeri dalla loro posizione, trovano cliente e casa mandante tra quelli dell'archivio e propongono un articolo per le descrizioni senza codice. Per le foto l'app include il riconoscimento dei caratteri (modelli PP-OCRv6 «tiny» con ONNX Runtime), che lavora in un processo separato e si carica solo alla prima foto.
+- **Perché.** Chi non vuole una chiave API, o non può inviare fuori i documenti dei clienti, deve poter usare l'app per intero. E deve funzionare anche su computer modesti: niente scheda grafica, niente programmi da installare a parte.
+- **Che cosa devi fare.** Niente: è il modo predefinito. La scrittura a mano viene letta male e l'app lo segnala; in quei casi puoi far leggere a Claude (vedi sotto) oppure correggere le righe. La lettura delle foto è nelle app per Windows, Linux e Mac e nella cartella `app/`, non nella versione in un solo file. Si sceglie chi legge in **Impostazioni → Chi legge gli ordini**.
+
+#### Il modello del gestionale
+
+- **Che cosa cambia.** Prima di tutto si può caricare un file di esempio nel formato che il gestionale importa. L'app riconosce le colonne dal nome, mostra che cosa metterà in ognuna e ricava dalle righe di esempio separatore, decimali, date e codifica. Le colonne che non corrispondono a un dato dell'ordine restano vuote oppure ricevono sempre lo stesso valore (per esempio il tipo di documento). Il file può essere anche un Excel (`.xlsx`), con quantità, prezzi e sconti scritti come numeri. Alla prima apertura la schermata «Carica» propone i due passaggi iniziali: modello e archivio.
+- **Perché.** Ogni gestionale vuole il file a modo suo. Spiegarlo all'app con un esempio è più semplice e più sicuro che impostare a mano colonne e formati.
+- **Che cosa devi fare.** In **Impostazioni → File per il gestionale** premi **Carica il modello**, controlla le colonne e conferma. Senza modello vale il tracciato predefinito, come prima.
+
+Prima (tracciato predefinito) e dopo (con un modello di cinque colonne, la prima a valore fisso):
+
+```text
+CodArticolo;Descrizione;Unimis;Quantita;Colli;Prezzo;Sconto1;Sconto2;Omaggio;NumOrdine;…
+300101;PASSATA DI POMODORO BOTTIGLIA GR 700;PZ;120;10;0,85;5;;N;2026/0412;…
+```
+
+```text
+TipoDoc;CodArticolo;Qta;Prezzo;DataOrdine
+OC;300101;120;0,85;23/11/2026
+```
+
+#### Quantità in pezzi dai colli
+
+- **Che cosa cambia.** L'archivio articoli riconosce anche la colonna dei pezzi per collo (per esempio «Confezione»). Quando un ordine indica solo i cartoni, la quantità in pezzi viene calcolata per le righe collegate all'archivio, e l'app lo scrive tra le note di lettura.
+- **Perché.** Molti clienti ordinano «6 cartoni di…»: il gestionale di solito vuole anche i pezzi.
+- **Che cosa devi fare.** Ricarica l'elenco degli articoli se vuoi usare questa colonna. Una quantità già scritta non viene mai toccata.
+
+#### Lettura con Claude e la propria chiave API
+
+- **Che cosa cambia.** Per le scritture a mano e i documenti difficili si può far leggere a Claude: in **Impostazioni → Lettura degli ordini** si inserisce la propria chiave API di Anthropic. L'app la verifica, legge dall'account l'elenco dei modelli disponibili e propone quale usare. Finché la chiave manca legge questo dispositivo: la schermata iniziale lo dice e porta alle impostazioni. La chiave si può mostrare, rimuovere, oppure non far ricordare affatto.
 - **Perché.** Dentro Claude la lettura passava per la pagina. Un'app senza server non può contenere una chiave condivisa: sarebbe pubblica e chiunque potrebbe usarla a spese di qualcun altro. Ognuno usa quindi la propria.
-- **Che cosa devi fare.** Crea una chiave nella Console di Anthropic e incollala nelle impostazioni. Ogni lettura ha un costo addebitato all'account della chiave e richiede internet. Senza chiave l'app resta utilizzabile: righe scritte a mano, collegamento all'archivio, controlli ed esportazione.
+- **Che cosa devi fare.** Crea una chiave nella Console di Anthropic e incollala nelle impostazioni. Ogni lettura ha un costo addebitato all'account della chiave e richiede internet. Senza chiave l'app legge comunque gli ordini sul dispositivo.
 
 #### Archivio delle case mandanti
 

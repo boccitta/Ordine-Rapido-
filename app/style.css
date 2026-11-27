@@ -134,6 +134,20 @@ input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;margin:0}
 .intro h2{font:800 clamp(27px,3.8vw,44px)/1.05 var(--display);letter-spacing:-.03em;max-width:19ch}
 .lead{color:var(--muted);font-size:16px;max-width:62ch;text-wrap:balance}
 .note{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:center;background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:12px;padding:8px 14px;font-size:14px}
+.note.quiet{background:transparent;border-color:transparent;color:var(--muted);font-size:13.5px;padding:0 14px}
+.note.quiet b{color:var(--ink);font-weight:600}
+/* Per cominciare: il modello del gestionale e l'archivio */
+.setup{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px}
+.setup li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.setup .n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:700 13px var(--display);background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line)}
+.setup .n .ic{width:15px;height:15px}
+.setup li[data-state=done] .n{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.setup li>div{display:grid;gap:1px;min-width:0}
+.setup b{font:700 14.5px var(--display)}
+.setup li>div span{color:var(--muted);font-size:13px}
+.setup li[data-state=done]>div span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.setup .su-x{grid-column:1/-1;display:block;border:0;background:transparent;padding:0;margin-top:-4px;text-align:right;font-size:12.5px}
+@media (max-width:760px){.setup{grid-template-columns:1fr}}
 .inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .drop{border:1.5px dashed var(--field);box-shadow:none;padding:20px 18px;display:grid;gap:6px;justify-items:center;align-content:center;text-align:center;min-height:216px}
 .drop.over{border-style:solid;border-color:var(--accent);background:var(--accent-soft)}
@@ -361,6 +375,16 @@ dialog.drawer{margin:0 0 0 auto;width:min(560px,100%);height:100%;max-height:100
 .cols .nm{color:var(--ink)}
 .cols li.off .nm{color:var(--muted)}
 .cols input[type=text]{padding:3px 6px;font:12.5px var(--mono)}
+.cols li.fix .nm input{width:100%}
+/* Il modello del gestionale: una riga per ogni colonna del file */
+.tpl .line .row span{display:inline}
+.tplcols{display:grid;gap:6px}
+.tc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:6px 10px;align-items:center}
+.tc-name{display:grid;min-width:0}
+.tc-name b{font:600 13px var(--mono);overflow-wrap:anywhere}
+.tc-name span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc.off .tc-name b{color:var(--muted)}
+.tc input[type=text]{grid-column:2;padding:4px 8px;font:12.5px var(--mono)}
 dialog.sheetdlg{width:min(880px,calc(100% - 32px));max-height:calc(100% - 32px);border:1px solid var(--line);border-radius:18px;padding:0;background:var(--surface)}
 .orig{display:grid;gap:8px}
 .orig img{max-width:100%;border:1px solid var(--line);border-radius:8px;background:#fff}

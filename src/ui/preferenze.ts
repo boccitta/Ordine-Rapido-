@@ -27,8 +27,10 @@ export function loadUi(): void {
     const saved = JSON.parse(localStorage.getItem(UI_KEY) || '{}') || {};
     S.allCols = saved.allCols === true;
     S.skinChoice = saved.skin === 'dark' || saved.skin === 'light' ? saved.skin : '';
+    S.readerChoice = saved.reader === 'local' || saved.reader === 'claude' ? saved.reader : '';
+    S.setupHidden = saved.setupHidden === true;
   } catch { /* preferenze illeggibili: si usano quelle predefinite */ }
 }
 export function saveUi(): void {
-  try { localStorage.setItem(UI_KEY, JSON.stringify({ allCols: S.allCols, skin: S.skinChoice })); } catch { /* come sopra */ }
+  try { localStorage.setItem(UI_KEY, JSON.stringify({ allCols: S.allCols, skin: S.skinChoice, reader: S.readerChoice, setupHidden: S.setupHidden })); } catch { /* come sopra */ }
 }

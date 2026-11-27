@@ -16,7 +16,7 @@ import { saveDraftSoon } from './bozza.ts';
 import { $, button, el, find, icon, input, miniBtn, money } from './dom.ts';
 import { blocked, currentText, expStatus } from './esporta.ts';
 import { paintUi, rowStatus } from './schermate.ts';
-import { S, emptyRow, platform } from './stato.ts';
+import { S, emptyRow, platform, readerMode } from './stato.ts';
 import { fillHead } from './testata.ts';
 
 type FieldKind = 'code' | 'desc' | 'um' | 'n' | 'p' | 'chk' | 'calc' | 'ean' | 'note';
@@ -152,7 +152,49 @@ function learn(r: Row, art: { cod: string }): void {
 function confirmLink(i: number): void {
   const r = S.order.righe[i], l = r && r.link;
   if (!r || !l || !l.cod) return;
-  l.ok = true; l.via = 'confermato'; learn(r, l); renderLink(i); refresh();
+  l.ok = true; l.via = 'confermato'; learn(r, l); showQty(i, r); renderLink(i); refresh();
+}
+
+/**
+ * Se una riga collegata ha i colli ma non la quantità, e l'archivio dice quanti pezzi stanno in un collo, la calcola.
+ * Non tocca mai una quantità già scritta.
+ */
+function fillQty(r: Row): boolean {
+  const l = r.link, conf = l && l.ok ? num(l.conf) : null, colli = num(r.colli);
+  if (!conf || conf <= 0 || !colli || num(r.quantita) !== null) return false;
+  r.quantita = showNum(colli * conf, 'qty');
+  return true;
+}
+function showQty(i: number, r: Row): void {
+  if (!fillQty(r)) return;
+  const f = find<HTMLInputElement>('r' + i + '-quantita');
+  if (f) f.value = r.quantita;
+}
+
+/**
+ * Completa l'ordine appena letto con quello che l'archivio sa: la casa mandante, se il documento non la nomina,
+ * è quella degli articoli riconosciuti; la quantità in pezzi, se sono scritti solo i colli, si ricava dai pezzi per collo.
+ */
+export function completeFromArchive(): void {
+  const o = S.order;
+  if (!S.ix) return;
+  let changed = false;
+  if (!String(o.mandante || '').trim()) {
+    const seen: Record<string, number> = {};
+    let n = 0;
+    for (const r of o.righe) { const m = r.link && r.link.cod ? r.link.mand : ''; if (m) { seen[m] = (seen[m] || 0) + 1; n++; } }
+    const names = Object.keys(seen), only = names.length === 1 ? names[0] : '';
+    if (only && n >= o.righe.length / 2) {
+      o.mandante = only; changed = true;
+      if (S.arch.man.length && !String(o.mandante_cod || '').trim()) { const m = matchMandante(S.arch.man, o); if (m) { o.mandante_cod = m.cod; o.man_auto = true; } }
+      checkMandante();
+      S.notes.push('La casa mandante non era scritta: è quella degli articoli riconosciuti in archivio. Verifica.');
+    }
+  }
+  const filled: number[] = [];
+  o.righe.forEach((r, i) => { if (fillQty(r)) filled.push(i + 1); });
+  if (filled.length) { changed = true; S.notes.push('Quantità in pezzi calcolata dai colli, con i pezzi per collo dell\'archivio: ' + (filled.length === 1 ? 'riga ' : 'righe ') + filled.join(', ') + '.'); }
+  if (changed) { fillHead(); renderRows(); refresh(); }
 }
 
 /* ---------- Ricerca in anagrafica ---------- */
@@ -176,7 +218,7 @@ function runFinder(fixed: readonly Article[] | null): void {
     b.addEventListener('click', () => {
       const i = finderRow, r = S.order.righe[i];
       if (i < 0 || !r) return;
-      r.link = linkOf(a, true, 'manuale'); learn(r, a); closeFinder(); renderLink(i); refresh();
+      r.link = linkOf(a, true, 'manuale'); learn(r, a); closeFinder(); showQty(i, r); renderLink(i); refresh();
     });
     ul.append(el('li', null, b));
   }
@@ -218,7 +260,8 @@ export async function suggest(): Promise<number> {
   }
   if (!todo.length || S.order !== order) return 0;
   await platform().ready;
-  const reader = platform().ai.reader();
+  /* se legge questo dispositivo, anche le proposte restano qui: all'archivio non serve nessuno da fuori */
+  const reader = readerMode() === 'claude' ? platform().ai.reader() : null;
   if (reader) {
     try {
       const ans = await reader.json(buildMatchPrompt(todo), { cache: false });
@@ -237,11 +280,13 @@ export async function suggest(): Promise<number> {
   if (S.order !== order) return 0;
   for (const t of todo) {
     let art: Article | null = null;
-    const first = t.cands[0];
+    const first = t.cands[0], second = t.cands[1];
     if (picks && (t.i + 1) in picks) {
       const want = normCode(picks[t.i + 1]);
       for (const c of t.cands) if (want && !art && normCode(c.art.cod) === want) art = c.art;
-    } else if (first && first.score >= 0.6) art = first.art;
+    }
+    /* senza un modello che scelga: il più simile, se lo è molto oppure se stacca nettamente il secondo */
+    else if (first && (first.score >= 0.6 || (first.score >= 0.4 && (!second || second.score <= first.score * 0.75)))) art = first.art;
     if (art) { t.r.link = linkOf(art, false, 'suggerito'); n++; }
   }
   renderLinks(); refresh();

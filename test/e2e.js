@@ -15,6 +15,8 @@ const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '..');
 const PAGE = pathToFileURL(path.resolve(ROOT, process.argv[2] || 'app/index.html')).href;
+/* la versione in un solo file non contiene il riconoscimento dei caratteri per le foto */
+const UN_SOLO_FILE = !!process.argv[2] && !/index\.html$/.test(process.argv[2]);
 const ES = name => path.join(ROOT, 'esempi', name);
 const VERSIONE = require('../package.json').version;
 const { CHIAVE_FINTA, simulaAnthropic } = require('./simulazione.js');
@@ -63,11 +65,21 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
     assert.deepEqual(font, [true, true], 'i caratteri inclusi devono caricarsi');
     passo('la pagina si apre da file, con versione ' + VERSIONE + ', caratteri inclusi e archivio sul dispositivo');
 
-    /* 2. Senza chiave la lettura chiede di impostarla, ma non blocca il resto */
-    await page.fill('#msg', 'dieci cartoni di passata');
+    /* 2. Senza chiave gli ordini li legge questo dispositivo, senza chiamare nessuno; se non trova righe lo dice */
+    assert.equal(await page.isVisible('#setup'), true, 'al primo avvio l\'app propone di caricare modello e archivio');
+    await page.fill('#msg', '10 cartoni di passata di pomodoro\n4 ct di tonno all\'olio in omaggio');
     await page.click('#btnRead');
-    await page.waitForFunction(() => /chiave API/.test(document.getElementById('readStatus').textContent));
-    passo('senza chiave la lettura automatica spiega cosa fare');
+    await page.waitForSelector('#v2:not([hidden])');
+    assert.deepEqual(await page.$$eval('#tbody tr', trs => trs.map(tr => [tr.querySelector('.c-descrizione input').value, tr.querySelector('.c-colli input').value, tr.querySelector('.c-omaggio input').checked])),
+      [['passata di pomodoro', '10', false], ['tonno all\'olio', '4', true]]);
+    await page.click('#rail1');
+    await page.fill('#msg', 'ci sentiamo domani, grazie');
+    await page.click('#btnRead');
+    await page.waitForFunction(() => /Non ho trovato righe/.test(document.getElementById('readStatus').textContent));
+    assert.match(await page.textContent('#readStatus'), /Aggiungi Claude con la tua chiave/);
+    await page.fill('#msg', '');
+    assert.equal(chiamate.length, 0, 'la lettura sul dispositivo non chiama Anthropic');
+    passo('senza chiave: un messaggio letto sul dispositivo, e un avviso chiaro quando non ci sono righe');
 
     /* 3. Ordine di esempio senza archivio: avviso, nessun blocco */
     await page.click('#btnExample');
@@ -96,6 +108,19 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
     page = await apri();
     assert.match(await page.textContent('#archChipText'), /16 articoli, 6 clienti/);
     passo('alla riapertura gli archivi ci sono ancora');
+
+    /* 5b. Un PDF letto sul dispositivo, senza chiave: testata, righe e totali, con i codici dell'archivio */
+    await page.setInputFiles('#fileInput', ES('ordine-esempio.pdf'));
+    await page.click('#btnRead');
+    await page.waitForSelector('#v2:not([hidden])', { timeout: 60000 });
+    assert.equal(await page.locator('#tbody tr').count(), 5);
+    assert.equal(await page.locator('#tbody .pill.ok').count(), 5, 'tutte le righe collegate all\'archivio');
+    assert.equal(await page.inputValue('#h-cliente_cod'), 'C0012'); assert.equal(await page.inputValue('#h-mandante_cod'), 'M001');
+    assert.equal(await page.inputValue('#h-numero'), '2026/0412');
+    assert.equal(await page.locator('#tbody tr.gift').count(), 1, 'la riga in omaggio è riconosciuta');
+    assert.equal(chiamate.length, 0, 'ancora nessuna chiamata ad Anthropic');
+    await page.click('#rail3'); await page.click('#btnNew');
+    passo('PDF letto sul dispositivo: 5 righe collegate, testata riconosciuta, nessuna chiamata verso internet');
 
     /* 6. Chiave API: una sbagliata viene rifiutata, una buona salvata */
     await page.click('#btnSet');
@@ -208,6 +233,67 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
     await page.waitForFunction(() => document.getElementById('artInfo').textContent.startsWith('17'));
     await page.click('#archClose');
     passo('archivio aggiornato da un file Excel, colonne riconosciute da sole');
+
+    /* 11b. Modello del gestionale: il file esportato prende colonne, ordine e formato dal file di esempio */
+    const modello = path.join(dir, 'modello-gestionale.csv');
+    fs.writeFileSync(modello, 'TipoDoc;CodArticolo;Qta;Prezzo;DataOrdine\r\nOC;300101;12;0,85;23/11/2026\r\n', 'latin1');
+    await page.click('#btnSet');
+    const [fc3] = await Promise.all([page.waitForEvent('filechooser'), page.click('#btnTpl')]);
+    await fc3.setFiles(modello);
+    await page.waitForSelector('#tplMap:not([hidden]) #btnTplUse');
+    assert.deepEqual(await page.$$eval('#tplMap select', ss => ss.map(s => s.value)), ['fisso', 'cod_articolo', 'quantita', 'prezzo', 'data']);
+    assert.equal(await page.inputValue('#tpl-v-0'), 'OC');
+    await page.click('#btnTplUse');
+    assert.match(await page.textContent('#tplInfo'), /modello-gestionale\.csv, 5 colonne/);
+    await page.click('#setClose');
+    await page.click('#rail3');
+    const daModello = (await scarica(page, '#btnDownload')).dati.toString('latin1').split('\r\n');
+    assert.deepEqual(daModello.slice(0, 2), ['TipoDoc;CodArticolo;Qta;Prezzo;DataOrdine', 'OC;300101;120;0,85;23/11/2026']);
+    await page.click('#btnSet');
+    await page.selectOption('#p-format', 'xlsx');
+    await page.click('#setClose');
+    assert.equal(await page.textContent('#btnDownloadT'), 'Scarica Excel');
+    const excel = await scarica(page, '#btnDownload');
+    assert.match(excel.nome, /\.xlsx$/);
+    const foglio = XLSX.read(excel.dati, { type: 'buffer' });
+    assert.deepEqual(XLSX.utils.sheet_to_json(foglio.Sheets[foglio.SheetNames[0]], { header: 1 }).slice(0, 2), [['TipoDoc', 'CodArticolo', 'Qta', 'Prezzo', 'DataOrdine'], ['OC', '300101', 120, 0.85, '23/11/2026']]);
+    await page.click('#btnSet');
+    await page.click('#btnTplClear'); await page.click('#btnTplClear');
+    assert.equal(await page.textContent('#tplInfo'), 'non caricato');
+    assert.equal(await page.inputValue('#p-format'), 'csv');
+    passo('modello del gestionale: stesse colonne nello stesso ordine, valore fisso, CSV ed Excel con i numeri veri');
+
+    /* 11c. Una foto letta sul dispositivo. Nella versione in un solo file il riconoscimento dei caratteri non c'è: l'app lo dice. */
+    await page.selectOption('#ai-mode', 'local');
+    await page.click('#setClose');
+    const carta = await context.newPage();
+    await carta.setViewportSize({ width: 1400, height: 760 });
+    await carta.setContent('<body style="margin:50px;background:#fff;font:30px Arial,Helvetica,sans-serif;color:#111"><p><b>BUONO D\'ORDINE N. 0412</b> del 23/11/2026</p><p>Fornitore: CONSERVE FANTASIA S.P.A.</p>' +
+      '<table style="border-collapse:collapse;font:30px Arial,Helvetica,sans-serif" border="1" cellpadding="14"><tr><th>Codice</th><th>Descrizione</th><th>Colli</th><th>Prezzo unit.</th></tr>' +
+      '<tr><td>300101</td><td>PASSATA DI POMODORO BOTTIGLIA GR 700</td><td>4</td><td>0,85</td></tr><tr><td>300102</td><td>POLPA DI POMODORO LATTA GR 400</td><td>6</td><td>0,55</td></tr>' +
+      '<tr><td>300402</td><td>CARCIOFINI SOTT\'OLIO VASO GR 280</td><td>2</td><td>2,60</td></tr></table></body>');
+    const foto = path.join(dir, 'buono-fotografato.png');
+    await carta.screenshot({ path: foto });
+    await carta.close();
+    await page.click('#btnNew');
+    await page.setInputFiles('#fileInput', foto);
+    await page.click('#btnRead');
+    if (UN_SOLO_FILE) {
+      await page.waitForFunction(() => /non si possono leggere sul dispositivo/.test(document.getElementById('readStatus').textContent), null, { timeout: 60000 });
+      passo('versione in un solo file: per le foto l\'app dice che serve Claude');
+    } else {
+      await page.waitForSelector('#v2:not([hidden])', { timeout: 240000 });
+      assert.deepEqual(await page.$$eval('#tbody tr', trs => trs.map(tr => [tr.querySelector('.c-cod_articolo input').value, tr.querySelector('.c-colli input').value, tr.querySelector('.c-prezzo input').value])),
+        [['300101', '4', '0,85'], ['300102', '6', '0,55'], ['300402', '2', '2,60']]);
+      assert.equal(await page.locator('#tbody .pill.ok').count(), 3, 'i codici letti dalla foto sono quelli dell\'archivio');
+      assert.equal(await page.inputValue('#h-mandante_cod'), 'M001', 'la casa mandante è riconosciuta dal nome scritto sul buono');
+      assert.match(await page.textContent('#notes'), /Letto da una foto/);
+      passo('foto letta sul dispositivo: 3 righe con codici dell\'archivio, colli e prezzi, senza chiamare nessuno');
+    }
+    await page.click('#rail1');
+    /* per l'ultima prova serve un ordine aperto: se la foto non è stata letta, si apre quello di esempio */
+    if (UN_SOLO_FILE) await page.click('#btnExample');
+    await page.click('#btnSet'); await page.selectOption('#ai-mode', 'claude'); await page.click('#setClose');
 
     /* 12. Nessun contatto con internet oltre all'indirizzo di Anthropic (qui simulato), nessun errore */
     const altre = esterne.filter(u => !u.startsWith('https://api.anthropic.com/'));

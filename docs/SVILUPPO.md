@@ -8,7 +8,9 @@ Il codice è scritto in **TypeScript**, nella cartella `src/`, diviso in moduli 
 
 | Cartella | Compito | Può usare |
 |---|---|---|
-| `src/core/` | **Logica pura**: numeri, calcoli, controlli, abbinamento con l'archivio, tracciato e costruzione del CSV, copia di sicurezza | solo se stessa |
+| `src/core/` | **Logica pura**: numeri, calcoli, controlli, abbinamento con l'archivio, tracciato e costruzione del file, modello del gestionale, copia di sicurezza | solo se stessa |
+| `src/core/lettura/` | **Lettura sul dispositivo**, sempre logica pura: da righe di testo con la posizione di ogni pezzo (`testo.ts`) a tabelle d'ordine (`tabella.ts`), righe scritte a parole (`libera.ts`), testata e totali (`testata.ts`). Restituisce la stessa forma che restituisce Claude, così il resto dell'app non distingue chi ha letto | `core` |
+| `src/ocr/` | Il motore che riconosce i caratteri nelle foto: gira in un worker e non fa parte di `app.js` | `ppu-paddle-ocr`, `onnxruntime-web` |
 | `src/anthropic/` | Colloquio con Anthropic: come si compone la richiesta e come si legge la risposta. Non spedisce nulla: riceve da fuori la funzione che lo fa | `core` |
 | `src/piattaforma/` | Gli **ambienti** in cui gira la pagina (browser, app desktop, dentro Claude) dietro un unico contratto: archivi, chiave API, lettura, salvataggio dei file | `core`, `anthropic`, il contratto del ponte |
 | `src/ui/` | Interfaccia: schermate, righe, archivio, lettura dei file, esportazione, impostazioni, ordine in corso salvato, avviso per gli errori imprevisti | tutto il precedente |
@@ -41,6 +43,7 @@ La regola che dà senso al progetto, **nel file finiscono solo codici dell'archi
 | `app/app.js` | `src/ui/avvio.ts` | Tutto il codice della pagina in un file solo, caricato da un normale `<script>`: funziona anche aperto da disco |
 | `desktop/main.js` | `src/desktop/main.ts` | Il processo principale dell'app desktop |
 | `desktop/preload.js` | `src/desktop/preload.ts` | Il ponte, lato finestra |
+| `app/vendor/ocr/ocr-dati.js` | `src/ocr/motore.ts`, `node_modules/onnxruntime-web`, `terzi/ocr/` | Motore, WebAssembly e modelli per leggere le foto, in base64 dentro un solo script di circa 28 MB: una pagina aperta da disco non può leggere altri file, ma può caricare uno script. Si rifà solo quando cambia un ingrediente. Dettagli in [`terzi/ocr/LEGGIMI.md`](../terzi/ocr/LEGGIMI.md) |
 
 Non stanno nella repository e non si modificano a mano. Il codice non viene compresso: chi vuole controllarlo lo può leggere. La versione e l'indirizzo del codice sorgente vengono scritti dentro `app/app.js` in questo momento, a partire da `package.json`.
 
@@ -136,7 +139,8 @@ Le prime due girano ovunque. La terza ha bisogno di poter avviare Electron: su W
 - **Nessun dato reale**, nemmeno nei commenti o nelle prove. Solo i dati di `esempi/` o altri costruiti allo stesso modo.
 - **Niente contenuti inseriti come HTML.** Tutto ciò che arriva da un documento o da un archivio passa per `textContent`, attraverso la funzione `el()` di `src/ui/dom.ts`.
 - **Nessun nuovo indirizzo di rete.** Una prova fallisce se il codice nomina un indirizzo diverso da quello di Anthropic.
-- **La logica sta in `src/core/`** e ogni comportamento nuovo ha la sua prova in `test/core.test.mjs`.
+- **La logica sta in `src/core/`** e ogni comportamento nuovo ha la sua prova in `test/core.test.mjs`, `test/modello.test.mjs` (modello del gestionale) o `test/lettura.test.mjs` (lettura sul dispositivo).
+- **La lettura sul dispositivo non indovina.** Le regole di `src/core/lettura/` riempiono i campi; se un codice vale lo decide sempre l'abbinamento con l'archivio. Quando una regola fa una supposizione (un omaggio dedotto, una quantità senza unità, una correzione applicata) lo scrive tra gli avvisi.
 - **Il controllo dei tipi deve passare** (`npm run tipi`), con le opzioni severe di `tsconfig.json`. Niente `any`: un dato di provenienza esterna è `unknown` finché non lo si è controllato.
 - **Gli errori hanno un codice.** Si lanciano con `AppError` (`src/core/tipi.ts`); l'interfaccia traduce il codice nel messaggio per chi usa l'app.
 - **Lo stato sta in un posto solo**, `src/ui/stato.ts`. I moduli dell'interfaccia non tengono copie proprie dei dati dell'ordine o degli archivi.

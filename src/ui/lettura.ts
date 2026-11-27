@@ -7,17 +7,23 @@
  * Software libero distribuito con licenza GNU General Public License versione 3 (GPL-3.0-only),
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
+import { detectSep, parseDelimited } from '../core/anagrafiche.ts';
+import { fromGrid, fromItems, fromText, readLocal } from '../core/lettura/indice.ts';
+import type { Source } from '../core/lettura/indice.ts';
 import { num, show as showNum } from '../core/numeri.ts';
 import type { NumKind } from '../core/numeri.ts';
 import { unlinked } from '../core/ordine.ts';
 import { AppError, errorCode } from '../core/tipi.ts';
 import { $, button, el, status, today } from './dom.ts';
-import { openSettings } from './impostazioni.ts';
+import { openSettings, renderAi } from './impostazioni.ts';
 import { loadPdf, loadXlsx } from './librerie.ts';
 import type { PdfDocument, PdfTextItem } from './librerie.ts';
-import { setOrder, suggest } from './righe.ts';
+import { recognize } from './ocr.ts';
+import { completeFromArchive, setOrder, suggest } from './righe.ts';
+import { saveUi } from './preferenze.ts';
 import { freshRows, openOrder, show } from './schermate.ts';
-import { S, emptyOrder, emptyRow, platform } from './stato.ts';
+import { S, emptyOrder, emptyRow, platform, readerMode } from './stato.ts';
+import { decodeText } from './tabelle.ts';
 
 /* ---------- File in ingresso ---------- */
 const EXT: Readonly<Record<string, readonly [tag: string, color: string]>> = {
@@ -26,7 +32,7 @@ const EXT: Readonly<Record<string, readonly [tag: string, color: string]>> = {
 };
 const IMAGE_EXT = /^(jpe?g|png|webp|gif|heic|heif|bmp)$/;
 /* Limiti di quello che parte per una lettura. */
-const MAX_PAGES = 6, MAX_TEXT = 60000, MAX_MESSAGE = 20000, MAX_SHEETS = 5;
+const MAX_PAGES = 6, MAX_TEXT = 60000, MAX_MESSAGE = 20000, MAX_SHEETS = 5, MAX_GRID_ROWS = 2000;
 
 export function renderFiles(): void {
   const ul = $('fileList'); ul.textContent = '';
@@ -48,8 +54,17 @@ export function addFiles(list: FileList | readonly File[]): void {
 }
 
 /* ---------- Da file a testo e immagini ---------- */
-/** Quello che si ricava dai file: testi, immagini intere, ritagli ingranditi, anteprime da mostrare, avvisi. */
-interface Parts { texts: { name: string; text: string }[]; full: Blob[]; halves: Blob[]; extra: Blob[]; previews: string[]; notes: string[] }
+/**
+ * Quello che si ricava dai file. Per Claude: testi, immagini intere, ritagli ingranditi. Per la lettura sul dispositivo:
+ * le fonti, cioè righe di testo con la posizione di ogni pezzo, e le pagine senza testo, da passare al riconoscimento
+ * dei caratteri. Per tutti: anteprime da mostrare e avvisi.
+ */
+interface Parts {
+  texts: { name: string; text: string }[]; full: Blob[]; halves: Blob[]; extra: Blob[]; previews: string[]; notes: string[];
+  sources: Source[]; scans: { name: string; canvas: HTMLCanvasElement }[];
+  /** true se legge questo dispositivo: non servono i ritagli ingranditi, servono le pagine da riconoscere. */
+  local: boolean;
+}
 
 function canvasBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((res, rej) => { canvas.toBlob(b => { if (b) res(b); else rej(new AppError('image_rejected')); }, 'image/jpeg', 0.9); });
@@ -99,18 +114,27 @@ async function readPdf(file: File, parts: Parts): Promise<void> {
   const max = Math.min(doc.numPages, MAX_PAGES);
   if (doc.numPages > max) parts.notes.push(file.name + ': lette solo le prime ' + max + ' pagine di ' + doc.numPages + '.');
   for (let p = 1; p <= max; p++) {
-    const page = await doc.getPage(p);
-    const text = linesFromItems((await page.getTextContent()).items);
+    const page = await doc.getPage(p), items = (await page.getTextContent()).items;
+    const text = linesFromItems(items), where = file.name + (max > 1 ? ', pagina ' + p : '');
     const hasText = text.replace(/\s/g, '').length > 40;
-    if (hasText) parts.texts.push({ name: file.name + ' (pagina ' + p + ', testo estratto; le colonne sono separate da |)', text });
+    if (hasText) {
+      parts.texts.push({ name: file.name + ' (pagina ' + p + ', testo estratto; le colonne sono separate da |)', text });
+      /* in un PDF l'altezza cresce verso l'alto: per le fonti si ribalta, così la prima riga è quella in cima */
+      parts.sources.push(fromItems(where, items.filter(it => it.str && it.str.trim()).map(it => {
+        const h = it.height || Math.abs(it.transform[3] || 0) || 10;
+        return { s: it.str || '', x: it.transform[4] || 0, y: -(it.transform[5] || 0) - h, w: it.width || 0, h };
+      })));
+    }
     const base = page.getViewport({ scale: 1 }), scale = Math.min(3, 2000 / Math.max(base.width, base.height));
     const vp = page.getViewport({ scale }), canvas = document.createElement('canvas');
     canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height);
     const ctx = context(canvas); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: ctx, viewport: vp }).promise;
-    const t = await tiles(canvas, true);
+    const t = await tiles(canvas, !parts.local);
     parts.full.push(t.full); parts.previews.push(URL.createObjectURL(t.full));
     if (hasText) parts.extra = parts.extra.concat(t.halves); else parts.halves = parts.halves.concat(t.halves);
+    /* una pagina senza testo è una scansione: sul dispositivo la legge il riconoscimento dei caratteri */
+    if (!hasText && parts.local) parts.scans.push({ name: where, canvas });
   }
 }
 async function readImage(file: File, parts: Parts): Promise<void> {
@@ -120,9 +144,10 @@ async function readImage(file: File, parts: Parts): Promise<void> {
   const max = 2600, k = Math.min(1, max / Math.max(bmp.width, bmp.height)), canvas = document.createElement('canvas');
   canvas.width = Math.round(bmp.width * k); canvas.height = Math.round(bmp.height * k);
   context(canvas).drawImage(bmp, 0, 0, canvas.width, canvas.height);
-  const t = await tiles(canvas, Math.max(canvas.width, canvas.height) > 1400);
+  const t = await tiles(canvas, !parts.local && Math.max(canvas.width, canvas.height) > 1400);
   parts.full.push(t.full); parts.previews.push(URL.createObjectURL(t.full));
   parts.halves = parts.halves.concat(t.halves);
+  if (parts.local) parts.scans.push({ name: file.name, canvas });
 }
 async function readSheet(file: File, parts: Parts): Promise<void> {
   const XLSX = await loadXlsx();
@@ -134,14 +159,24 @@ async function readSheet(file: File, parts: Parts): Promise<void> {
     if (!sheet) continue;
     const csv = XLSX.utils.sheet_to_csv(sheet, { FS: ';', blankrows: false });
     if (csv.trim()) parts.texts.push({ name: file.name + ' (foglio ' + nm + ', celle separate da ;)', text: csv.slice(0, MAX_TEXT) });
+    /* per la lettura sul dispositivo le celle restano com'erano: un numero resta un numero, una data resta una data */
+    parts.sources.push(fromGrid(file.name + ', foglio ' + nm, XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null, blankrows: false }).slice(0, MAX_GRID_ROWS)));
   }
+}
+async function readTextFile(file: File, parts: Parts): Promise<void> {
+  const text = decodeText(await file.arrayBuffer()).slice(0, MAX_TEXT), sep = detectSep(text);
+  parts.texts.push({ name: file.name, text });
+  /* un CSV è una tabella; un file di testo qualsiasi è un messaggio */
+  const first = text.split(/\r?\n/).find(l => l.trim()) || '';
+  if (/\.(csv|tsv)$/i.test(file.name) && first.split(sep).length > 2) parts.sources.push(fromGrid(file.name, parseDelimited(text, sep).slice(0, MAX_GRID_ROWS)));
+  else parts.sources.push(fromText(file.name, text));
 }
 async function readFile(file: File, parts: Parts): Promise<void> {
   const n = file.name.toLowerCase(), type = file.type || '';
   if (type === 'application/pdf' || /\.pdf$/.test(n)) return readPdf(file, parts);
   if (/\.(xlsx|xlsm|xls|ods)$/.test(n)) return readSheet(file, parts);
   if (type.indexOf('image/') === 0 || /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/.test(n)) return readImage(file, parts);
-  if (type.indexOf('text/') === 0 || /\.(csv|txt|tsv|eml)$/.test(n)) { parts.texts.push({ name: file.name, text: (await file.text()).slice(0, MAX_TEXT) }); return; }
+  if (type.indexOf('text/') === 0 || /\.(csv|txt|tsv|eml)$/.test(n)) return readTextFile(file, parts);
   throw new AppError('local', 'Tipo di file non gestito: ' + file.name + '. Usa PDF, Excel, CSV, testo o una foto.');
 }
 
@@ -253,9 +288,15 @@ async function readOrder(): Promise<void> {
   try {
     const p = platform();
     await p.ready;
+    const local = readerMode() === 'local', parts: Parts = { texts: [], full: [], halves: [], extra: [], previews: [], notes: [], sources: [], scans: [], local };
+    if (local) {
+      for (const f of files) { await readFile(f, parts); if (my.signal.aborted) throw new AppError('cancelled'); }
+      await readHere(parts, message, my.signal);
+      await finish(files);
+      return;
+    }
     const reader = p.ai.reader();
-    if (!reader) throw p.ai.needsKey ? new AppError('no_key') : new AppError('local', 'Da questa pagina la lettura automatica non è disponibile. Puoi comunque compilare le righe a mano ed esportare.');
-    const parts: Parts = { texts: [], full: [], halves: [], extra: [], previews: [], notes: [] };
+    if (!reader) throw p.ai.needsKey ? new AppError('no_key') : new AppError('local', 'Da questa pagina Claude non è disponibile. Nelle impostazioni puoi far leggere gli ordini a questo dispositivo.');
     for (const f of files) { await readFile(f, parts); if (my.signal.aborted) throw new AppError('cancelled'); }
     let limits: Awaited<ReturnType<typeof reader.limits>> = null;
     try { limits = await reader.limits(); } catch { /* limiti non disponibili: si procede senza immagini */ }
@@ -274,19 +315,62 @@ async function readOrder(): Promise<void> {
     if (imgs.length) opts.images = imgs;
     const data = await reader.json(buildPrompt(parts.texts, message, imgs.length), opts);
     applyModel(data, parts);
-    if (S.ix && unlinked(S.order)) { readStatus('Cerco gli articoli nella tua anagrafica…', ''); await suggest(); }
-    readStatus('', '');
-    const first = files[0];
-    openOrder('order', first ? first.name + (files.length === 2 ? ' e un altro file' : files.length > 2 ? ' e altri ' + (files.length - 1) + ' file' : '') : 'Messaggio incollato');
-    S.headEdit = false; setBusy(false); show('controlla'); freshRows();
+    await finish(files);
   } catch (e) {
     const code = errorCode(e);
     if (code === 'no_key') needKey();
+    else if (code === 'no_rows' || code === 'ocr_missing') tryClaude(code === 'ocr_missing'
+      ? 'In questa versione dell\'app le foto e le scansioni non si possono leggere sul dispositivo.'
+      : 'Non ho trovato righe d\'ordine in questo materiale. Succede con la scrittura a mano e con le impaginazioni insolite.');
     else {
       const detail = e instanceof AppError ? e.detail : '';
       readStatus(code === 'local' && e instanceof Error ? e.message : (ERR[code] || 'Lettura non riuscita. Riprova tra poco.') + (code === 'api_invalid' && detail ? ' Dettaglio: ' + detail : ''), code === 'cancelled' ? '' : 'bad');
     }
   } finally { setBusy(false); if (ctl === my) ctl = null; }
+}
+
+/** Dopo la lettura, chiunque l'abbia fatta: completa con l'archivio, propone gli abbinamenti e apre il controllo. */
+async function finish(files: readonly File[]): Promise<void> {
+  completeFromArchive();
+  if (S.ix && unlinked(S.order)) { readStatus('Cerco gli articoli nella tua anagrafica…', ''); await suggest(); completeFromArchive(); }
+  readStatus('', '');
+  const first = files[0];
+  openOrder('order', first ? first.name + (files.length === 2 ? ' e un altro file' : files.length > 2 ? ' e altri ' + (files.length - 1) + ' file' : '') : 'Messaggio incollato');
+  S.headEdit = false; setBusy(false); show('controlla'); freshRows();
+}
+
+/**
+ * La lettura sul dispositivo: nessuna chiave, nessuna richiesta verso internet. Le foto e le scansioni passano prima
+ * dal riconoscimento dei caratteri; poi le regole di src/core/lettura ricavano testata e righe.
+ */
+async function readHere(parts: Parts, message: string, signal: AbortSignal): Promise<void> {
+  let missing = false;
+  for (let i = 0; i < parts.scans.length; i++) {
+    const scan = parts.scans[i];
+    if (!scan) continue;
+    readStatus(parts.scans.length > 1 ? 'Leggo le immagini: ' + (i + 1) + ' di ' + parts.scans.length + '…' : 'Leggo l\'immagine: la prima volta serve qualche secondo in più…', '');
+    try { parts.sources.push(fromItems(scan.name, await recognize(scan.canvas, signal), { photo: true })); }
+    catch (e) { if (errorCode(e) !== 'ocr_missing') throw e; missing = true; }
+  }
+  if (message) parts.sources.push(fromText('Messaggio', message.slice(0, MAX_MESSAGE)));
+  if (missing && parts.sources.every(s => !s.lines.length)) throw new AppError('ocr_missing');
+  readStatus('Ricavo le righe dell\'ordine…', '');  const answer = readLocal(parts.sources, { ix: S.ix, cli: S.arch.cli, man: S.arch.man, today: today() });
+  if (!answer.righe.length) throw new AppError(missing ? 'ocr_missing' : 'no_rows');
+  if (missing) answer.avvisi.push('Le foto e le scansioni non sono state lette: in questa versione dell\'app serve Claude.');
+  if (parts.scans.length && !missing) answer.avvisi.unshift('Letto da una foto: i caratteri riconosciuti possono contenere errori. Controlla codici, quantità e prezzi sul documento.');
+  applyModel(answer, parts);
+}
+
+/** Quando il dispositivo non ce la fa: dice perché e propone le due strade che restano. */
+function tryClaude(why: string): void {
+  const s = $('readStatus'), ai = platform().ai, hasClaude = !ai.needsKey || ai.state().hasKey;
+  s.textContent = why + ' '; s.className = 'status warn';
+  const b = el('button', { type: 'button', className: 'link', text: hasClaude ? 'Fallo leggere a Claude' : 'Aggiungi Claude con la tua chiave' });
+  b.addEventListener('click', () => {
+    if (!hasClaude) { openSettings('ai-key'); return; }
+    S.readerChoice = 'claude'; saveUi(); renderAi(); void readOrder();
+  });
+  s.append(b, ', oppure scrivi le righe a mano.');
 }
 
 export function wireReading(): void {

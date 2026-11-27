@@ -7,8 +7,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- La pagina può collegarsi a un solo indirizzo esterno: quello di Anthropic, per la lettura automatica degli ordini. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data: blob:; connect-src https://api.anthropic.com; worker-src 'self' blob:; base-uri 'none'; form-action 'none'">
+<!-- La pagina può collegarsi a un solo indirizzo esterno: quello di Anthropic, e solo se si sceglie di far leggere gli ordini a Claude.
+     'wasm-unsafe-eval' serve al riconoscimento dei caratteri, che gira in WebAssembly su questo dispositivo. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data: blob:; connect-src https://api.anthropic.com; worker-src 'self' blob:; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="light dark">
 <title>Ordine Rapido</title>
@@ -73,12 +74,17 @@
       <p class="lead">Carica quello che ti ha mandato il cliente. Ordine Rapido lo trascrive in righe con i codici del tuo gestionale.</p>
     </div>
     <div id="openNote" class="note" hidden>Hai già un ordine aperto. Se ne leggi un altro, prende il suo posto. <button type="button" class="link" id="btnResume">Torna all'ordine aperto</button></div>
-    <div id="keyNote" class="note" hidden>La lettura automatica non è ancora attiva: serve la tua chiave API di Anthropic. <button type="button" class="link" id="btnKeyNote">Imposta la chiave</button></div>
+    <ol id="setup" class="setup" aria-label="Per cominciare" hidden>
+      <li id="suTpl" data-state="todo"><span class="n" aria-hidden="true">1</span><div><b>Modello del gestionale</b><span id="suTplT"></span></div><button type="button" id="btnSuTpl" class="small">Carica il modello</button></li>
+      <li id="suArch" data-state="todo"><span class="n" aria-hidden="true">2</span><div><b>Archivio del gestionale</b><span id="suArchT"></span></div><button type="button" id="btnSuArch" class="small">Carica l'archivio</button></li>
+      <li class="su-x"><button type="button" id="btnSuHide" class="link">Nascondi</button></li>
+    </ol>
+    <div id="keyNote" class="note quiet" hidden><span>Gli ordini vengono letti <b>su questo dispositivo</b>: niente viene inviato. Per le scritture a mano puoi aggiungere Claude.</span> <button type="button" class="link" id="btnKeyNote">Imposta la chiave</button></div>
     <div id="inputs" class="inputs">
       <div id="drop" class="card drop">
         <div class="tiles-art" aria-hidden="true"><span class="fileart" data-t="PDF" style="--c:#E5484D"></span><span class="fileart" data-t="XLS" style="--c:#1F9D61"></span><span class="fileart" data-t="FOTO" style="--c:#3B7BF6"></span></div>
         <strong>Trascina qui il file dell'ordine</strong>
-        <span>PDF, Excel, CSV o foto. Anche più file dello stesso ordine.</span>
+        <span>PDF, Excel, CSV, testo o foto. Anche più file dello stesso ordine.</span>
         <ul id="fileList" class="files"></ul>
         <button type="button" id="btnPick"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg><span id="btnPickT">Scegli file</span></button>
         <input id="fileInput" type="file" multiple accept=".pdf,.xlsx,.xls,.csv,.txt,image/*" hidden>
@@ -179,7 +185,7 @@
         <p id="fileName"></p>
         <p id="sum" class="sum"></p>
         <div class="row">
-          <button id="btnDownload" class="primary big" type="button"><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg>Scarica CSV</button>
+          <button id="btnDownload" class="primary big" type="button"><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg><span id="btnDownloadT">Scarica CSV</span></button>
           <button id="btnTsv" type="button" title="Copia le righe, pronte da incollare nel gestionale con Importa righe da Excel"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Copia righe</button>
           <button id="btnCopyCsv" type="button" class="ghost">Copia CSV</button>
           <button id="btnFix" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg>Torna al controllo</button>
@@ -193,7 +199,7 @@
           <button type="button" id="howRows" aria-pressed="false">Con le righe copiate</button>
         </div>
         <ol id="howFileList">
-          <li><span>Premi <b>Scarica CSV</b> e salva il file.</span></li>
+          <li><span>Premi <b id="howDl">Scarica CSV</b> e salva il file.</span></li>
           <li><span>Nel gestionale apri l'importazione degli ordini da file e scegli il file appena salvato.</span></li>
           <li><span>In GesACom: apri l'ordine, fai clic destro nell'area delle righe e scegli <b>importa Righe da File CSV</b>.</span></li>
         </ol>
@@ -257,10 +263,14 @@
   <div class="drawer-in">
     <div class="dhead"><h2 id="hSet">Impostazioni</h2><button type="button" id="setClose">Chiudi</button></div>
     <section class="sec" aria-labelledby="hAi">
-      <h3 id="hAi">Lettura automatica</h3>
-      <p id="aiClaude" class="how" hidden>Qui gli ordini vengono letti da Claude attraverso questa pagina: non serve nessuna chiave.</p>
+      <h3 id="hAi">Lettura degli ordini</h3>
+      <p class="how">Ordine Rapido legge gli ordini <b>su questo dispositivo</b>, senza chiave API, senza costi e senza inviare nulla: Excel, CSV, PDF, messaggi e foto di documenti stampati. Riconosce le righe partendo dai codici e dalle descrizioni del tuo archivio.</p>
+      <div class="field"><label for="ai-mode">Chi legge gli ordini</label>
+        <select id="ai-mode"><option value="local">Questo dispositivo: niente esce da qui</option><option value="claude">Claude: più preciso su scritture a mano e documenti difficili</option></select></div>
+      <p id="aiModeNote" class="status" role="status"></p>
+      <p id="aiClaude" class="how" hidden>Qui Claude legge gli ordini attraverso questa pagina: non serve nessuna chiave.</p>
       <div id="aiOwn" class="set">
-        <p class="how">Per leggere PDF, foto e messaggi l'app usa Claude con la <b>tua chiave API di Anthropic</b>. Il documento dell'ordine viene inviato ad Anthropic da questo dispositivo; il costo di ogni lettura è a carico dell'account della chiave. Senza chiave puoi comunque scrivere le righe a mano, collegarle all'archivio ed esportare.</p>
+        <p class="how">Per far leggere a Claude serve la <b>tua chiave API di Anthropic</b>. Il documento dell'ordine viene inviato ad Anthropic da questo dispositivo; il costo di ogni lettura è a carico dell'account della chiave.</p>
         <div class="field"><label for="ai-key">Chiave API</label>
           <div class="keyrow"><input type="password" id="ai-key" autocomplete="off" spellcheck="false" placeholder="sk-ant-…"><button type="button" id="ai-show" class="small" aria-pressed="false">Mostra</button></div></div>
         <div class="field"><label for="ai-model">Modello</label><select id="ai-model"></select></div>
@@ -270,10 +280,19 @@
         <p class="fine">La chiave resta su questo dispositivo e viene inviata soltanto ad Anthropic. Non finisce negli archivi, nelle copie di sicurezza né nel file esportato.</p>
       </div>
     </section>
-    <h3 id="hTrac" class="sech" tabindex="-1">Tracciato del file</h3>
-    <p class="how">Come deve essere fatto il file per il tuo gestionale: colonne, separatore, formato dei numeri. Resta salvato su questo dispositivo.</p>
+    <h3 id="hTrac" class="sech" tabindex="-1">File per il gestionale</h3>
+    <p class="how">Carica un file di esempio nel formato che il tuo gestionale importa: un CSV o un Excel con i nomi delle colonne, meglio se con qualche riga compilata. Ordine Rapido ne ricava colonne, ordine e formato, e il file che esporta sarà fatto allo stesso modo.</p>
+    <div class="arch tpl">
+      <div class="line"><div><b>Modello del gestionale</b> <span id="tplInfo">non caricato</span></div><div class="row"><button type="button" id="btnTpl">Carica il modello</button><button type="button" id="btnTplClear" class="small" hidden>Togli</button></div></div>
+    </div>
+    <input id="tplFile" type="file" accept=".csv,.txt,.tsv,.xlsx,.xls" hidden>
+    <div id="tplMap" class="mapper" hidden></div>
+    <p id="tplStatus" class="status" role="status"></p>
+    <p class="how">Qui sotto puoi ritoccare ogni dettaglio a mano. Tutto resta salvato su questo dispositivo.</p>
     <div class="set">
       <div class="opts">
+        <div class="field"><label for="p-format">Tipo di file</label>
+          <select id="p-format"><option value="csv">CSV (testo)</option><option value="xlsx">Excel (.xlsx)</option></select></div>
         <div class="field"><label for="p-sep">Separatore</label>
           <select id="p-sep"><option value=";">Punto e virgola ;</option><option value=",">Virgola ,</option><option value="&#9;">Tabulazione</option><option value="|">Barra |</option></select></div>
         <div class="field"><label for="p-dec">Decimali</label>

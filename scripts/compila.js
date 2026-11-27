@@ -33,7 +33,43 @@ async function compila() {
   /* L'app desktop: Electron resta esterno, tutto il resto finisce nel file. */
   for (const nome of ['main', 'preload'])
     await esbuild.build({ ...comune, entryPoints: [file('src/desktop/' + nome + '.ts')], outfile: file('desktop/' + nome + '.js'), platform: 'node', format: 'cjs', external: ['electron'] });
+  await compilaOcr(esbuild, comune, file);
   return leggi();
+}
+
+/*
+ * Il riconoscimento dei caratteri per foto e scansioni: app/vendor/ocr/ocr-dati.js.
+ * Una pagina aperta da disco non può leggere altri file, ma può caricare uno script: per questo il motore
+ * (src/ocr/motore.ts con le librerie ppu-paddle-ocr e onnxruntime-web), il suo WebAssembly e i modelli PP-OCRv6
+ * finiscono in un solo script, scritti in base64. Pesa circa 28 MB e si carica soltanto alla prima foto.
+ * Si rifà solo quando cambia qualcosa di ciò che contiene.
+ */
+const OCR_FILE = [
+  ['wasm', 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm'],
+  ['rilevamento', 'terzi/ocr/PP-OCRv6_tiny_det.ort'],
+  ['riconoscimento', 'terzi/ocr/PP-OCRv6_tiny_rec.ort'],
+  ['dizionario', 'terzi/ocr/ppocrv6_tiny_dict.txt']
+];
+async function compilaOcr(esbuild, comune, file) {
+  const fs = require('node:fs'), crypto = require('node:crypto');
+  const uscita = file('app/vendor/ocr/ocr-dati.js');
+  /* solo il motore WebAssembly di onnxruntime-web, senza le varianti per la scheda grafica: meno codice, stesso risultato */
+  const motore = await esbuild.build({ ...comune, entryPoints: [file('src/ocr/motore.ts')], write: false, platform: 'browser', format: 'iife',
+    alias: { 'onnxruntime-web': 'onnxruntime-web/wasm' }, logLevel: 'error' });
+  const codice = motore.outputFiles[0].text, dati = OCR_FILE.map(([nome, percorso]) => [nome, fs.readFileSync(file(percorso))]);
+  const impronta = crypto.createHash('sha256').update(codice);
+  for (const [, d] of dati) impronta.update(d);
+  const riga = '/* impronta: ' + impronta.digest('hex') + ' */';
+  try {
+    const fd = fs.openSync(uscita, 'r'), inizio = Buffer.alloc(riga.length);
+    fs.readSync(fd, inizio, 0, riga.length, 0); fs.closeSync(fd);
+    if (inizio.toString('utf8') === riga) return;
+  } catch { /* il file non c'è ancora */ }
+  fs.mkdirSync(path.dirname(uscita), { recursive: true });
+  const parti = [riga, INTESTAZIONE, 'globalThis.ordineRapidoOcr = {', '  codice: ' + JSON.stringify(codice) + ','];
+  for (const [nome, d] of dati) parti.push('  ' + nome + ': "' + d.toString('base64') + '",');
+  parti.push('};', '');
+  fs.writeFileSync(uscita, parti.join('\n'));
 }
 
 if (require.main === module) {

@@ -31,7 +31,20 @@ function lookup(ix: Index, map: Record<string, number[]>, key: string, mk: strin
 }
 
 export function linkOf(a: Article, ok: boolean, via: Via): Link {
-  return { cod: a.cod, desc: a.desc, um: a.um, mand: a.mand, ok, via };
+  const l: Link = { cod: a.cod, desc: a.desc, um: a.um, mand: a.mand, ok, via };
+  if (a.conf) l.conf = a.conf;
+  return l;
+}
+
+const STOP: Readonly<Record<string, 1>> = { DI: 1, DA: 1, DEL: 1, DELLA: 1, DELLE: 1, DEI: 1, PER: 1, CON: 1, IN: 1, AL: 1, ALLA: 1, ALL: 1, ALLO: 1, IL: 1, LA: 1, LO: 1, LE: 1, GLI: 1, UN: 1, UNA: 1, ED: 1 };
+/**
+ * Le parole che contano in una descrizione: senza articoli e preposizioni e senza la vocale finale,
+ * così «panetti» trova «panetto» e «80x3» trova «80 X 3».
+ */
+export function words(s: unknown): string[] {
+  return tokens(String(s ?? '').replace(/(\d)\s*[xX×]\s*(?=\d)/g, '$1 X '))
+    .filter(t => !Object.prototype.hasOwnProperty.call(STOP, t))
+    .map(t => (t.length >= 4 && /[AEIOU]$/.test(t) && !/\d/.test(t) ? t.slice(0, -1) : t));
 }
 
 /** Le chiavi con cui si ricorda un abbinamento scelto a mano: per codice della mandante, per codice del cliente, per descrizione. */
@@ -76,8 +89,8 @@ export function matchRow(ix: Index | null, row: Row, order: Order, alias?: Recor
 /** Ricerca per descrizione o codice: gli articoli più simili, i migliori in cima. */
 export function search(ix: Index | null, query: string, mandante: string, n?: number): { art: Article; score: number }[] {
   if (!ix) return [];
-  if (!ix.tok) ix.tok = ix.arts.map(a => tokens(a.desc));
-  const tok = ix.tok, q = tokens(query), qc = normCode(query), mk = companyKey(mandante);
+  if (!ix.tok) ix.tok = ix.arts.map(a => words(a.desc));
+  const tok = ix.tok, q = words(query), qc = normCode(query), mk = companyKey(mandante);
   const qs: Record<string, 1> = Object.create(null), out: { i: number; s: number }[] = [];
   let qn = 0;
   for (const t of q) if (!qs[t]) { qs[t] = 1; qn++; }

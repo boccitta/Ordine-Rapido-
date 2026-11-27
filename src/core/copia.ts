@@ -52,7 +52,11 @@ export function backupParse(input: unknown): Restored {
     const campi: readonly unknown[] = Array.isArray(b.campi) ? b.campi : PACK[k];
     const items = (b.righe as unknown[]).filter(Array.isArray).map(r => {
       const it: Record<string, string> = {};
-      for (const f of PACK[k]) { const i = campi.indexOf(f); it[f] = i >= 0 ? str((r as unknown[])[i]).replace(/[\t\r\n]+/g, ' ') : ''; }
+      for (const f of PACK[k]) {
+        const i = campi.indexOf(f), v = i >= 0 ? str((r as unknown[])[i]).replace(/[\t\r\n]+/g, ' ') : '';
+        /* i pezzi per collo ci sono solo se il gestionale li esporta: un campo vuoto non si crea */
+        if (v || f !== 'conf') it[f] = v;
+      }
       return it;
     }).filter(it => (it.cod || '').trim());
     setArchiveItems(out, k, mergeItems(k, [], items as unknown as Item[]));

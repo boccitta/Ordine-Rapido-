@@ -15,6 +15,17 @@ Si trovano in `app/vendor/`, copiati senza modifiche. Versione, origine e impron
 
 La versione portatile `Ordine-Rapido.html` contiene gli stessi componenti dentro il file.
 
+### Riconoscimento dei caratteri per foto e scansioni
+
+Servono a leggere sul dispositivo il testo di foto e scansioni. `npm run compila` li riunisce in `app/vendor/ocr/ocr-dati.js`; non sono nella versione portatile in un solo file.
+
+| Componente | Versione | A cosa serve | Licenza | Testo della licenza |
+|---|---|---|---|---|
+| [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) (onnxruntime-web), Microsoft Corporation | 1.31.1 | Esegue i modelli in WebAssembly | MIT | [`onnxruntime-LICENSE.txt`](app/vendor/licenze/onnxruntime-LICENSE.txt) |
+| [ppu-paddle-ocr](https://github.com/PT-Perkasa-Pilar-Utama/ppu-paddle-ocr), PT. Perkasa Pilar Utama | 6.7.1 | Prepara le immagini e ricompone il testo | MIT | [`ppu-paddle-ocr-LICENSE.txt`](app/vendor/licenze/ppu-paddle-ocr-LICENSE.txt) |
+| [ppu-ocv](https://github.com/PT-Perkasa-Pilar-Utama/ppu-ocv), PT. Perkasa Pilar Utama | quella richiesta da ppu-paddle-ocr | Elaborazione delle immagini | MIT | [`ppu-ocv-LICENSE.txt`](app/vendor/licenze/ppu-ocv-LICENSE.txt) |
+| Modelli PP-OCRv6 «tiny» di [PaddleOCR](https://www.paddleocr.ai/), PaddlePaddle Authors | file in [`terzi/ocr/`](terzi/ocr/LEGGIMI.md) | Trovano e leggono il testo nell'immagine | Apache License 2.0 | [`pdfjs-LICENSE.txt`](app/vendor/licenze/pdfjs-LICENSE.txt) (testo della licenza Apache 2.0) |
+
 ## Inclusi solo nei pacchetti desktop
 
 | Componente | A cosa serve | Licenza |

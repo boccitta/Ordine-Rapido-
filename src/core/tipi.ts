@@ -6,8 +6,8 @@
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
 
-/** Articolo dell'archivio del gestionale. */
-export interface Article { cod: string; desc: string; ean: string; um: string; mand: string; prezzo: string }
+/** Articolo dell'archivio del gestionale. `conf` è il numero di pezzi per collo, se il gestionale lo esporta. */
+export interface Article { cod: string; desc: string; ean: string; um: string; mand: string; prezzo: string; conf?: string }
 /** Cliente o casa mandante dell'archivio del gestionale. */
 export interface Party { cod: string; nome: string; piva: string }
 
@@ -20,7 +20,7 @@ export type Item = Article | Party;
 export type Via = '' | 'codice' | 'ean' | 'storico' | 'multi' | 'manuale' | 'confermato' | 'suggerito';
 
 /** Collegamento tra una riga dell'ordine e un articolo dell'archivio. Solo con ok:true il codice entra nel file. */
-export interface Link { cod: string; desc: string; um: string; mand: string; ok: boolean; via: Via; multi?: Article[] }
+export interface Link { cod: string; desc: string; um: string; mand: string; ok: boolean; via: Via; multi?: Article[]; /** pezzi per collo dell'articolo */ conf?: string }
 
 /** Una riga dell'ordine, con i valori così come si leggono e si scrivono nei campi. */
 export interface Row {
@@ -63,11 +63,19 @@ export interface Index {
   tok: string[][] | null;
 }
 
-export interface ProfileCol { id: string; on: boolean; header: string }
+/**
+ * Una colonna del file. `id` è un campo dell'app (vedi COLS) oppure, per le colonne che il gestionale vuole
+ * ma che l'app non conosce, un nome del tipo x1, x2…: in quel caso `value` è il valore fisso da scrivere (anche vuoto).
+ */
+export interface ProfileCol { id: string; on: boolean; header: string; value?: string }
 /** Tracciato: come deve essere fatto il file per il gestionale. */
 export interface Profile {
   sep: string; dec: string; date: string; enc: string; um: string; omaggi: string;
   header: boolean; descSrc: string; allowUnlinked: boolean;
+  /** 'csv' oppure 'xlsx': il tipo di file che il gestionale importa. */
+  format: string;
+  /** Il nome del file modello da cui è stato ricavato il tracciato; vuoto se è stato impostato a mano. */
+  template: string;
   cols: ProfileCol[];
 }
 

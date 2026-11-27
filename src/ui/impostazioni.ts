@@ -1,23 +1,28 @@
 /*
- * Ordine Rapido - interfaccia: il pannello Impostazioni. Lettura automatica (chiave API e modello)
- * e tracciato del file (colonne, separatore, formato dei numeri).
+ * Ordine Rapido - interfaccia: il pannello Impostazioni. Chi legge gli ordini (questo dispositivo oppure Claude,
+ * con chiave API e modello), il modello del gestionale e il tracciato del file (colonne, separatore, formato dei numeri).
  *
  * Copyright (C) 2026 Roberto Murenu
  * Software libero distribuito con licenza GNU General Public License versione 3 (GPL-3.0-only),
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
 import { MODELS, MODEL_HINT, keyLooksValid } from '../anthropic/protocollo.ts';
-import { colDef, defaultProfile } from '../core/tracciato.ts';
+import { FIELD_EMPTY, FIELD_FIXED, analyzeTemplate, profileFromTemplate } from '../core/modello.ts';
+import type { TemplateAnalysis } from '../core/modello.ts';
+import { fmtDate } from '../core/numeri.ts';
+import { COLS, colDef, defaultProfile, isFixed } from '../core/tracciato.ts';
 import { AppError, errorCode } from '../core/tipi.ts';
 import type { Profile } from '../core/tipi.ts';
 import type { KeyOutcome } from '../piattaforma/tipi.ts';
 import { $, button, el, find, input, openDlg, select, status } from './dom.ts';
 import { readStatus } from './lettura.ts';
-import { saveProfile } from './preferenze.ts';
+import { saveProfile, saveUi } from './preferenze.ts';
 import { refresh } from './righe.ts';
-import { S, platform } from './stato.ts';
+import { paintSetup } from './schermate.ts';
+import { S, platform, readerMode } from './stato.ts';
+import { tableFromFile } from './tabelle.ts';
 
-/* ---------- Lettura automatica ---------- */
+/* ---------- Chi legge gli ordini ---------- */
 function aiStatus(text: string, level?: string): void { status('aiStatus', text, level); }
 
 const AI_ERR: Readonly<Record<string, string>> = {
@@ -38,7 +43,9 @@ const KEY_MSG: Readonly<Record<KeyOutcome, string>> = {
 };
 
 export function renderAi(): void {
-  const ai = platform().ai, st = ai.state();
+  const ai = platform().ai, st = ai.state(), mode = readerMode();
+  select('ai-mode').value = mode;
+  status('aiModeNote', mode === 'claude' && ai.needsKey && !st.hasKey ? 'Per far leggere a Claude salva qui sotto la tua chiave API.' : '', 'warn');
   $('aiClaude').hidden = ai.needsKey; $('aiOwn').hidden = !ai.needsKey;
   $('keyNote').hidden = !ai.needsKey || st.hasKey;
   if (!ai.needsKey) return;
@@ -82,18 +89,108 @@ async function saveKey(): Promise<void> {
   } finally { b.disabled = false; }
 }
 
+/* ---------- Modello del gestionale ---------- */
+/** Un modello letto ma non ancora in uso: aspetta che si confermi che cosa va in ogni colonna. */
+let tpl: { name: string; a: TemplateAnalysis } | null = null;
+let clearArmed = false;
+function tplStatus(text: string, level?: string): void { status('tplStatus', text, level); }
+
+const SEP_NAME: Readonly<Record<string, string>> = { ';': 'punto e virgola', ',': 'virgola', '\t': 'tabulazione', '|': 'barra verticale' };
+function describe(a: TemplateAnalysis): string {
+  const parts = a.format === 'xlsx' ? ['File Excel'] : ['File CSV', 'separatore: ' + (SEP_NAME[a.sep] || a.sep), 'codifica ' + (a.enc === 'utf8' ? 'UTF-8' : 'Windows')];
+  if (a.samples) {
+    if (a.format !== 'xlsx') parts.push('decimali con ' + (a.dec === '.' ? 'il punto' : 'la virgola'));
+    parts.push('date come ' + fmtDate('2026-11-27', a.date));
+  }
+  return parts.join(' · ') + '.' + (a.samples ? '' : ' Il modello non ha righe compilate: il formato di numeri e date resta quello impostato qui sotto.');
+}
+const isField = (f: string) => f !== FIELD_FIXED && f !== FIELD_EMPTY;
+
+export function renderTemplateInfo(): void {
+  const p = S.profile, n = p.cols.filter(c => c.on).length;
+  $('tplInfo').textContent = p.template ? p.template + ', ' + n + ' colonne' : 'non caricato';
+  $('btnTpl').textContent = p.template ? 'Cambia modello' : 'Carica il modello';
+  $('btnTplClear').hidden = !p.template;
+  paintSetup();
+}
+
+/** Mette in uso un tracciato appena cambiato: lo salva e ridisegna tutto ciò che ne dipende. */
+function applyProfile(): void { saveProfile(); syncOpts(); renderCols(); renderTemplateInfo(); refresh(); }
+
+/** Il riquadro in cui, per ogni colonna del modello, si conferma che cosa deve contenere. */
+function renderTplMap(focus?: string): void {
+  const m = $('tplMap'); m.textContent = ''; m.hidden = !tpl;
+  if (!tpl) return;
+  const T = tpl, a = T.a;
+  m.append(el('strong', { text: 'Modello: ' + T.name }), el('p', { className: 'status', text: describe(a) }));
+  m.append(el('p', { className: 'how', text: a.recognized
+    ? 'Ho riconosciuto dal nome ' + a.recognized + ' colonne su ' + a.columns.length + '. Controlla, e per le altre scegli che cosa devono contenere.'
+    : 'Non ho riconosciuto nessuna colonna dal nome: controlla che la prima riga del file contenga i nomi delle colonne, poi scegli per ognuna che cosa deve contenere.' }));
+  const list = el('div', { className: 'tplcols' });
+  a.columns.forEach((c, k) => {
+    const sel = el('select', { id: 'tpl-f-' + k });
+    sel.setAttribute('aria-label', 'Contenuto della colonna ' + (c.header || String(k + 1)));
+    const gr = el('optgroup', { label: 'Dati della riga' }), gt = el('optgroup', { label: 'Dati dell\'ordine' }), gx = el('optgroup', { label: 'Altro' });
+    for (const d of COLS) (d.g === 'r' ? gr : gt).append(el('option', { value: d.id, text: d.label }));
+    gx.append(el('option', { value: FIELD_FIXED, text: 'Sempre lo stesso valore' }), el('option', { value: FIELD_EMPTY, text: 'Lascia vuota' }));
+    sel.append(gr, gt, gx); sel.value = c.field;
+    const val = el('input', { type: 'text', id: 'tpl-v-' + k, value: c.value, placeholder: 'valore', hidden: c.field !== FIELD_FIXED });
+    val.setAttribute('aria-label', 'Valore fisso per la colonna ' + (c.header || String(k + 1)));
+    val.addEventListener('input', () => { c.value = val.value; });
+    sel.addEventListener('change', () => {
+      c.field = sel.value;
+      /* un dato dell'app va in una colonna sola: se era già altrove, quella colonna resta vuota */
+      if (isField(c.field)) a.columns.forEach((o, j) => { if (j !== k && o.field === c.field) o.field = FIELD_EMPTY; });
+      if (c.field === FIELD_FIXED && !c.value) c.value = c.sample;
+      renderTplMap('tpl-f-' + k);
+    });
+    const name = el('div', { className: 'tc-name' }, el('b', { text: c.header || '(senza nome)' }), c.sample ? el('span', { text: 'es. ' + c.sample.slice(0, 30) }) : null);
+    list.append(el('div', { className: 'tc' + (c.field === FIELD_EMPTY ? ' off' : '') }, name, sel, val));
+  });
+  m.append(list);
+  const use = el('button', { type: 'button', className: 'primary', id: 'btnTplUse', text: 'Usa questo modello' }), cancel = el('button', { type: 'button', text: 'Annulla' });
+  cancel.addEventListener('click', () => { tpl = null; renderTplMap(); tplStatus('', ''); });
+  use.addEventListener('click', () => {
+    if (!a.columns.some(c => isField(c.field))) { tplStatus('Scegli almeno una colonna che contenga un dato dell\'ordine, per esempio il codice articolo.', 'warn'); return; }
+    /* quello che il modello non dice resta com'era: numeri e date senza righe di esempio, separatore e codifica per un Excel */
+    if (!a.samples) { a.dec = S.profile.dec; a.date = S.profile.date; }
+    if (a.format === 'xlsx') { a.sep = S.profile.sep; a.enc = S.profile.enc; }
+    S.profile = profileFromTemplate(a, S.profile, T.name);
+    tpl = null; renderTplMap(); applyProfile();
+    tplStatus('Modello in uso: il file esportato avrà le stesse ' + a.columns.length + ' colonne di ' + T.name + ', nello stesso ordine.', 'ok');
+  });
+  m.append(el('div', { className: 'row' }, use, cancel));
+  const f = focus ? find(focus) : null;
+  if (f) f.focus();
+}
+
+async function chosenTemplate(file: File): Promise<void> {
+  tplStatus('Leggo ' + file.name + '…', '');
+  try {
+    const t = await tableFromFile(file), a = analyzeTemplate(t.rows, { sep: t.sep, enc: t.enc, format: t.format });
+    if (!a.columns.length) { tpl = null; renderTplMap(); tplStatus('Il file è vuoto: serve almeno la riga con i nomi delle colonne.', 'bad'); return; }
+    tpl = { name: file.name, a }; tplStatus('', ''); renderTplMap();
+    $('tplMap').scrollIntoView({ block: 'nearest' });
+  } catch (err) {
+    tplStatus(errorCode(err) === 'local' && err instanceof Error ? err.message : 'Non riesco a leggere questo file. Usa un CSV o un Excel esportato dal gestionale.', 'bad');
+  }
+}
+/** Apre le impostazioni sul modello del gestionale e chiede subito il file. */
+export function pickTemplate(): void { openSettings('hTrac'); input('tplFile').click(); }
+
 /* ---------- Tracciato del file ---------- */
-type TextOption = 'sep' | 'dec' | 'date' | 'enc' | 'um' | 'omaggi' | 'descSrc';
+type TextOption = 'format' | 'sep' | 'dec' | 'date' | 'enc' | 'um' | 'omaggi' | 'descSrc';
 type CheckOption = 'header' | 'allowUnlinked';
-const TEXT_OPTIONS: readonly TextOption[] = ['sep', 'dec', 'date', 'enc', 'um', 'omaggi', 'descSrc'];
+const TEXT_OPTIONS: readonly TextOption[] = ['format', 'sep', 'dec', 'date', 'enc', 'um', 'omaggi', 'descSrc'];
 const CHECK_OPTIONS: readonly CheckOption[] = ['header', 'allowUnlinked'];
 type Field = HTMLInputElement | HTMLSelectElement;
 
-/** Riporta nei campi il tracciato in uso. */
+/** Riporta nei campi il tracciato in uso. Separatore, codifica e decimali valgono solo per un file di testo. */
 export function syncOpts(): void {
-  const p: Profile = S.profile;
+  const p: Profile = S.profile, xlsx = p.format === 'xlsx';
   for (const k of TEXT_OPTIONS) $<Field>('p-' + k).value = p[k];
   for (const k of CHECK_OPTIONS) input('p-' + k).checked = !!p[k];
+  for (const k of ['sep', 'enc', 'dec']) { const box = $('p-' + k).parentElement; if (box) box.hidden = xlsx; }
 }
 
 export function renderCols(): void {
@@ -101,18 +198,30 @@ export function renderCols(): void {
   S.profile.cols.forEach((c, i) => {
     const def = colDef(c.id);
     if (!def) return;
-    const li = el('li', { className: c.on ? '' : 'off' });
+    const fixed = isFixed(c.id), what = fixed ? 'colonna a valore fisso ' + (c.header || String(i + 1)) : def.label;
+    const li = el('li', { className: (c.on ? '' : 'off') + (fixed ? ' fix' : '') });
     const chk = el('input', { type: 'checkbox', id: 'c-on-' + c.id, checked: c.on });
-    chk.addEventListener('change', () => { c.on = chk.checked; li.className = c.on ? '' : 'off'; saveProfile(); refresh(); });
-    const name = el('label', { className: 'nm', text: def.label }); name.htmlFor = 'c-on-' + c.id;
+    chk.addEventListener('change', () => { c.on = chk.checked; li.classList.toggle('off', !c.on); saveProfile(); refresh(); });
+    let name: HTMLElement;
+    if (fixed) {
+      /* una colonna che il gestionale vuole ma che l'app non conosce: si scrive sempre lo stesso valore, anche vuoto */
+      const val = el('input', { type: 'text', id: 'c-val-' + c.id, value: c.value || '', placeholder: 'valore fisso (vuoto)' });
+      val.setAttribute('aria-label', 'Valore della ' + what);
+      val.addEventListener('input', () => { c.value = val.value; saveProfile(); refresh(); });
+      chk.setAttribute('aria-label', 'Includi la ' + what);
+      name = el('span', { className: 'nm' }, val);
+    } else {
+      const lb = el('label', { className: 'nm', text: def.label }); lb.htmlFor = 'c-on-' + c.id;
+      name = lb;
+    }
     const hd = el('input', { type: 'text', id: 'c-hd-' + c.id, value: c.header });
-    hd.setAttribute('aria-label', 'Nome colonna per ' + def.label);
+    hd.setAttribute('aria-label', 'Nome colonna per ' + what);
     hd.addEventListener('input', () => { c.header = hd.value; saveProfile(); refresh(); });
     const up = el('button', { type: 'button', className: 'mini', text: '↑', disabled: i === 0 });
-    up.setAttribute('aria-label', 'Sposta prima: ' + def.label);
+    up.setAttribute('aria-label', 'Sposta prima: ' + what);
     up.addEventListener('click', () => move(i, -1));
     const dn = el('button', { type: 'button', className: 'mini', text: '↓', disabled: i === S.profile.cols.length - 1 });
-    dn.setAttribute('aria-label', 'Sposta dopo: ' + def.label);
+    dn.setAttribute('aria-label', 'Sposta dopo: ' + what);
     dn.addEventListener('click', () => move(i, 1));
     li.append(chk, name, hd, up, dn); ul.append(li);
   });
@@ -131,7 +240,9 @@ function preset(full: boolean): void {
   const t = group('t'), r = group('r');
   for (const c of t) c.on = full;
   S.profile.cols = (full ? t.concat(r) : r.concat(t)).map(c => ({ id: c.id, on: c.on, header: byId[c.id] || c.header }));
-  saveProfile(); renderCols(); refresh();
+  /* le colonne non sono più quelle del modello caricato */
+  S.profile.template = '';
+  applyProfile();
 }
 
 export function wireSettings(): void {
@@ -141,6 +252,7 @@ export function wireSettings(): void {
     renderAi();
     aiStatus('Chiave rimossa da questo dispositivo.', '');
   });
+  $('ai-mode').addEventListener('change', () => { S.readerChoice = select('ai-mode').value === 'claude' ? 'claude' : 'local'; saveUi(); renderAi(); readStatus('', ''); });
   $('ai-model').addEventListener('change', () => platform().ai.setModel(select('ai-model').value));
   $('ai-remember').addEventListener('change', () => { platform().ai.setRemember(input('ai-remember').checked).catch(() => { /* vale la scelta fatta al prossimo salvataggio */ }); });
   $('ai-show').addEventListener('click', () => {
@@ -150,9 +262,25 @@ export function wireSettings(): void {
   $('btnKeyNote').addEventListener('click', () => openSettings('ai-key'));
   $('btnSet2').addEventListener('click', () => openSettings('hTrac'));
 
+  $('btnTpl').addEventListener('click', () => input('tplFile').click());
+  input('tplFile').addEventListener('change', () => {
+    const field = input('tplFile'), file = field.files && field.files[0];
+    field.value = '';
+    if (file) void chosenTemplate(file);
+  });
+  $('btnTplClear').addEventListener('click', () => {
+    const b = button('btnTplClear');
+    if (!clearArmed) { clearArmed = true; b.textContent = 'Conferma: togli'; setTimeout(() => { clearArmed = false; b.textContent = 'Togli'; }, 4000); return; }
+    clearArmed = false; b.textContent = 'Togli';
+    /* si torna alle colonne predefinite; restano le scelte che non dipendono dal modello */
+    const p = S.profile;
+    S.profile = { ...defaultProfile(), um: p.um, omaggi: p.omaggi, descSrc: p.descSrc, allowUnlinked: p.allowUnlinked };
+    applyProfile(); tplStatus('Modello tolto: valgono le colonne predefinite.', '');
+  });
+
   for (const k of TEXT_OPTIONS) {
     const field = $<Field>('p-' + k);
-    field.addEventListener('input', () => { S.profile[k] = field.value; saveProfile(); refresh(); });
+    field.addEventListener('input', () => { S.profile[k] = field.value; saveProfile(); if (k === 'format') syncOpts(); refresh(); });
   }
   for (const k of CHECK_OPTIONS) {
     const field = input('p-' + k);

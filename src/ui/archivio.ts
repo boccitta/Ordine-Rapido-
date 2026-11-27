@@ -7,7 +7,7 @@
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
 import { buildIndex } from '../core/abbinamento.ts';
-import { archiveItems, detectSep, guessMap, mergeItems, parseDelimited, rowsToItems, setArchiveDate, setArchiveItems } from '../core/anagrafiche.ts';
+import { archiveItems, guessMap, mergeItems, rowsToItems, setArchiveDate, setArchiveItems } from '../core/anagrafiche.ts';
 import type { ColumnMap } from '../core/anagrafiche.ts';
 import { backupBuild, backupParse } from '../core/copia.ts';
 import type { Restored } from '../core/copia.ts';
@@ -16,17 +16,17 @@ import { errorCode } from '../core/tipi.ts';
 import type { Archive, Kind } from '../core/tipi.ts';
 import type { StoreMode } from '../piattaforma/tipi.ts';
 import { $, button, count, el, input, status, today } from './dom.ts';
-import { renderCols, syncOpts } from './impostazioni.ts';
-import { loadXlsx } from './librerie.ts';
+import { renderCols, renderTemplateInfo, syncOpts } from './impostazioni.ts';
 import { saveProfile } from './preferenze.ts';
 import { matchAll, refresh, renderLinks } from './righe.ts';
-import { paintChip } from './schermate.ts';
+import { paintChip, paintSetup } from './schermate.ts';
+import { tableFromFile } from './tabelle.ts';
 import { S, platform } from './stato.ts';
 import { INFO } from './versione.ts';
 
 /* I campi di ogni archivio, con il nome mostrato nella scelta delle colonne. */
 const FIELDS: Record<Kind, readonly (readonly [field: string, label: string])[]> = {
-  art: [['cod', 'Codice articolo'], ['desc', 'Descrizione'], ['ean', 'EAN / codice a barre'], ['um', 'Unità di misura'], ['mand', 'Casa mandante'], ['prezzo', 'Prezzo di listino']],
+  art: [['cod', 'Codice articolo'], ['desc', 'Descrizione'], ['ean', 'EAN / codice a barre'], ['um', 'Unità di misura'], ['mand', 'Casa mandante'], ['prezzo', 'Prezzo di listino'], ['conf', 'Pezzi per collo']],
   cli: [['cod', 'Codice cliente'], ['nome', 'Ragione sociale'], ['piva', 'Partita IVA']],
   man: [['cod', 'Codice mandante'], ['nome', 'Ragione sociale'], ['piva', 'Partita IVA']]
 };
@@ -52,7 +52,7 @@ export function renderArchInfo(): void {
   $('artInfo').textContent = when(a.art.length, a.artAt);
   $('cliInfo').textContent = when(a.cli.length, a.cliAt);
   $('manInfo').textContent = when(a.man.length, a.manAt);
-  paintChip();
+  paintChip(); paintSetup();
   $('aliasInfo').textContent = count(Object.keys(a.alias).length);
   $('btnArt').textContent = a.art.length ? 'Aggiorna articoli' : 'Carica export articoli';
   $('btnCli').textContent = a.cli.length ? 'Aggiorna clienti' : 'Carica export clienti';
@@ -81,23 +81,6 @@ function useArchive(): void {
 }
 
 /* ---------- Caricamento dei file esportati ---------- */
-async function tableFromFile(file: File): Promise<string[][]> {
-  const n = file.name.toLowerCase(), buf = await file.arrayBuffer();
-  if (/\.(xlsx|xlsm|xls|ods)$/.test(n)) {
-    const XLSX = await loadXlsx(), wb = XLSX.read(buf, { type: 'array' });
-    let best: unknown[][] = [];
-    for (const nm of wb.SheetNames) {
-      const sheet = wb.Sheets[nm];
-      if (!sheet) continue;
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '', blankrows: false });
-      if (rows.length > best.length) best = rows;
-    }
-    return best.map(r => r.map(v => (v === null || v === undefined ? '' : String(v))));
-  }
-  let text: string;
-  try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch { text = new TextDecoder('windows-1252').decode(buf); }
-  return parseDelimited(text, detectSep(text));
-}
 function colName(i: number): string {
   let s = ''; i++;
   while (i > 0) { s = String.fromCharCode(65 + (i - 1) % 26) + s; i = Math.floor((i - 1) / 26); }
@@ -175,7 +158,7 @@ function renderMapper(): void {
 async function chosenArchiveFile(file: File): Promise<void> {
   archStatus('Leggo ' + file.name + '…', '');
   try {
-    const rows = await tableFromFile(file);
+    const rows = (await tableFromFile(file)).rows;
     if (!rows.length) { archStatus('Il file è vuoto.', 'bad'); return; }
     const kind = pendingKind, g = guessMap(kind, rows[0] || []);
     pending = { kind, rows, name: file.name, header: g.found > 0, map: g.found > 0 ? g.map : (kind === 'art' ? { cod: 0, desc: 1 } : { cod: 0, nome: 1 }), mode: 'replace', mand: '' };
@@ -215,7 +198,7 @@ async function chosenBackupFile(file: File): Promise<void> {
     go.disabled = true;
     const { profile, ...archive } = data;
     S.arch = archive as Archive;
-    if (profile) { S.profile = profile; saveProfile(); syncOpts(); renderCols(); }
+    if (profile) { S.profile = profile; saveProfile(); syncOpts(); renderCols(); renderTemplateInfo(); }
     m.textContent = ''; m.hidden = true;
     useArchive();
     try { await platform().store.saveAll(S.arch, savingBlock); archStatus('Archivi ripristinati dalla copia.', 'ok'); }

@@ -17,9 +17,13 @@ export {
   emptyArchive, archiveDate, setArchiveDate, archiveItems, setArchiveItems
 } from './anagrafiche.ts';
 export type { ColumnMap } from './anagrafiche.ts';
-export { buildIndex, linkOf, aliasKeys, matchRow, search, matchClient, matchMandante } from './abbinamento.ts';
-export { COLS, colDef, defaultProfile, mergeProfile, buildTable, toDelimited, toCp1252, fileName } from './tracciato.ts';
+export { buildIndex, linkOf, aliasKeys, matchRow, search, words, matchClient, matchMandante } from './abbinamento.ts';
+export { readLocal, fromGrid, fromItems, fromText, findDate, readNumber } from './lettura/indice.ts';
+export type { LocalAnswer, LocalContext, ReadRow, Source, Item, Line, Cell } from './lettura/indice.ts';
+export { COLS, colDef, isFixed, isNumeric, defaultProfile, mergeProfile, buildTable, buildSheet, toDelimited, toCp1252, fileName } from './tracciato.ts';
 export type { ColDef } from './tracciato.ts';
+export { FIELD_FIXED, FIELD_EMPTY, guessField, analyzeTemplate, profileFromTemplate, detectEncoding } from './modello.ts';
+export type { TemplateColumn, TemplateAnalysis } from './modello.ts';
 export { extractJson } from './risposta.ts';
 export { BACKUP_ID, BACKUP_VER, backupBuild, backupParse } from './copia.ts';
 export type { Backup, Restored } from './copia.ts';

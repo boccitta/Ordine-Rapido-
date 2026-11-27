@@ -66,6 +66,10 @@ export interface AppState {
   headEdit: boolean;
   allCols: boolean;
   skinChoice: Skin;
+  /** Chi legge gli ordini, se è stato scelto a mano; vuoto finché decide l'app (vedi readerMode). */
+  readerChoice: '' | 'local' | 'claude';
+  /** true se i passaggi «per cominciare» sono stati nascosti a mano. */
+  setupHidden: boolean;
   /** Quante cose da verificare, e quante da sistemare, mostra la schermata «Controlla». */
   issues: number;
   bads: number;
@@ -77,7 +81,7 @@ export const S: AppState = {
   order: exampleOrder(), isExample: true, notes: EX_NOTES.slice(), src: '', stage: 'none', exported: false,
   files: [], previews: [],
   profile: defaultProfile(), arch: emptyArchive(), ix: null, archReady: false, cliOk: false, manOk: false,
-  view: 'carica', headEdit: false, allCols: false, skinChoice: '',
+  view: 'carica', headEdit: false, allCols: false, skinChoice: '', readerChoice: '', setupHidden: false,
   issues: 0, bads: 0, guardShown: false
 };
 
@@ -87,4 +91,14 @@ export function setPlatform(p: Platform): void { current = p; }
 export function platform(): Platform {
   if (!current) throw new Error('Ambiente non ancora scelto');
   return current;
+}
+
+/**
+ * Chi legge gli ordini adesso. Se non è stato scelto a mano: Claude dove è già disponibile (dentro Claude, oppure
+ * con una chiave salvata), altrimenti questo dispositivo, che non ha bisogno di niente.
+ */
+export function readerMode(): 'local' | 'claude' {
+  if (S.readerChoice) return S.readerChoice;
+  const ai = platform().ai;
+  return !ai.needsKey || ai.state().hasKey ? 'claude' : 'local';
 }

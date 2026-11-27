@@ -34,11 +34,14 @@ export function tokens(s: unknown): string[] { return normText(s).split(' ').fil
 
 /* ----- Forma compatta: una riga di testo per elemento, campi separati da tabulazione ----- */
 export const PACK: { readonly [K in Kind]: readonly (keyof ItemByKind[K] & string)[] } = {
-  art: ['cod', 'desc', 'ean', 'um', 'mand', 'prezzo'],
+  /* i campi nuovi si aggiungono in fondo: un archivio salvato da una versione precedente si legge lo stesso */
+  art: ['cod', 'desc', 'ean', 'um', 'mand', 'prezzo', 'conf'],
   cli: ['cod', 'nome', 'piva'],
   man: ['cod', 'nome', 'piva']
 };
 function fields(kind: Kind): readonly string[] { return PACK[kind]; }
+/** I campi che un elemento ha solo quando il gestionale li esporta. */
+const OPTIONAL: Readonly<Record<string, 1>> = { conf: 1 };
 
 export function pack<K extends Kind>(kind: K, it: ItemByKind[K]): string {
   const o = it as unknown as Record<string, unknown>;
@@ -46,7 +49,7 @@ export function pack<K extends Kind>(kind: K, it: ItemByKind[K]): string {
 }
 export function unpack<K extends Kind>(kind: K, line: unknown): ItemByKind[K] {
   const p = str(line).split('\t'), o: Record<string, string> = {};
-  fields(kind).forEach((f, i) => { o[f] = p[i] || ''; });
+  fields(kind).forEach((f, i) => { if (p[i] || !OPTIONAL[f]) o[f] = p[i] || ''; });
   return o as unknown as ItemByKind[K];
 }
 /** Due articoli sono lo stesso se hanno stesso codice e stessa casa mandante; clienti e mandanti se hanno lo stesso codice. */
@@ -76,9 +79,12 @@ export function rowsToItems<K extends Kind>(kind: K, rows: readonly (readonly un
   for (let k = hasHeader ? 1 : 0; k < rows.length; k++) {
     const r = rows[k] || [], cod = get(r, 'cod');
     if (!cod) continue;
-    out.push(kind === 'art'
-      ? { cod, desc: get(r, 'desc'), ean: get(r, 'ean'), um: get(r, 'um').toUpperCase(), mand: get(r, 'mand') || str(fixedMand).trim(), prezzo: get(r, 'prezzo') }
-      : { cod, nome: get(r, 'nome'), piva: get(r, 'piva') });
+    if (kind === 'art') {
+      const a: Article = { cod, desc: get(r, 'desc'), ean: get(r, 'ean'), um: get(r, 'um').toUpperCase(), mand: get(r, 'mand') || str(fixedMand).trim(), prezzo: get(r, 'prezzo') };
+      const conf = get(r, 'conf');
+      if (conf) a.conf = conf;
+      out.push(a);
+    } else out.push({ cod, nome: get(r, 'nome'), piva: get(r, 'piva') });
   }
   return mergeItems(kind, [], out as ItemByKind[K][]);
 }
@@ -116,7 +122,7 @@ export function parseDelimited(text: string, sep: string): string[][] {
 /* ----- Riconoscimento delle colonne dal nome scritto nella prima riga ----- */
 type Hint = readonly [field: string, yes: RegExp, no: RegExp | null];
 const HINT: Record<Kind, readonly Hint[]> = {
-  art: [['ean', /ean|barcode|barre/, null], ['desc', /descr/, null], ['um', /^u\.?\s*m\.?$|unimis|unit.{1,2}\s*(di\s*)?mis/, null], ['prezzo', /prezzo|listino/, null],
+  art: [['ean', /ean|barcode|barre/, null], ['conf', /confez|imballo|(pz|pezzi|q\.?t[aà]).{0,5}(collo|cart|conf|ct)|x\s*collo/, /descr|tipo|cod/], ['desc', /descr/, null], ['um', /^u\.?\s*m\.?$|unimis|unit.{1,2}\s*(di\s*)?mis/, null], ['prezzo', /prezzo|listino/, null],
         ['mand', /mandante|fornitore|ditta|marca|casa/, /cod/], ['cod', /cod|art|sku/, /forn|mand|client|ean|barre|iva|cat|fam|grup|descr|fisc/]],
   cli: [['piva', /p\.?\s*iva|partita/, null], ['cod', /cod/, /fisc|iva|cap|agent|zona|pag|dest|banc/], ['nome', /ragione|denominaz|nominativo|nome|cliente/, /cod/]],
   man: [['piva', /p\.?\s*iva|partita/, null], ['cod', /cod/, /fisc|iva|cap|agent|zona|pag|dest|banc/], ['nome', /ragione|denominaz|nominativo|nome|mandante|fornitore|ditta|casa/, /cod/]]

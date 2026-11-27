@@ -29,6 +29,7 @@ export const COLS: readonly ColDef[] = [
   { id: 'cod_cliente', g: 'r', label: 'Codice articolo del cliente', header: 'CodArtCliente', on: false },
   { id: 'ean', g: 'r', label: 'EAN', header: 'EAN', on: false },
   { id: 'nota', g: 'r', label: 'Nota riga', header: 'NotaRiga', on: false },
+  { id: 'n_riga', g: 'r', label: 'Numero di riga', header: 'Riga', on: false },
   { id: 'numero', g: 't', label: 'N. ordine cliente', header: 'NumOrdine', on: true },
   { id: 'data', g: 't', label: 'Data ordine', header: 'DataOrdine', on: true },
   { id: 'consegna', g: 't', label: 'Data consegna', header: 'DataConsegna', on: true },
@@ -41,16 +42,23 @@ export const COLS: readonly ColDef[] = [
   { id: 'destinazione', g: 't', label: 'Destinazione merce', header: 'Destinazione', on: true },
   { id: 'note', g: 't', label: 'Note', header: 'Note', on: true }
 ];
+/** true per una colonna a valore fisso (x1, x2…): il gestionale la vuole, ma non corrisponde a un campo dell'app. */
+export function isFixed(id: string): boolean { return /^x\d+$/.test(id); }
 export function colDef(id: string): ColDef | null {
+  if (isFixed(id)) return { id, g: 't', label: 'Valore fisso', header: '', on: true };
   return COLS.find(c => c.id === id) || null;
 }
+/** Le colonne i cui valori sono numeri: in un file Excel vanno scritte come numeri, non come testo. */
+const NUMERIC: Readonly<Record<string, 1>> = { quantita: 1, colli: 1, prezzo: 1, sc1: 1, sc2: 1, sc3: 1, netto: 1, totale: 1, n_riga: 1 };
+export function isNumeric(id: string): boolean { return Object.prototype.hasOwnProperty.call(NUMERIC, id); }
 
 export function defaultProfile(): Profile {
   return { sep: ';', dec: ',', date: 'dmy', enc: 'cp1252', um: 'PZ', omaggi: 'sconto100', header: true, descSrc: 'gesacom', allowUnlinked: false,
+    format: 'csv', template: '',
     cols: COLS.map(c => ({ id: c.id, on: c.on, header: c.header })) };
 }
 
-const PROFILE_TEXT = ['sep', 'dec', 'date', 'enc', 'um', 'omaggi', 'descSrc'] as const;
+const PROFILE_TEXT = ['sep', 'dec', 'date', 'enc', 'um', 'omaggi', 'descSrc', 'template'] as const;
 /** Parte dal tracciato predefinito e ci riporta sopra quello salvato: così un tracciato vecchio riceve le colonne nuove. */
 export function mergeProfile(saved: unknown): Profile {
   const p = defaultProfile();
@@ -59,23 +67,31 @@ export function mergeProfile(saved: unknown): Profile {
   for (const k of PROFILE_TEXT) { const v = s[k]; if (typeof v === 'string') p[k] = v; }
   if (typeof s.header === 'boolean') p.header = s.header;
   if (typeof s.allowUnlinked === 'boolean') p.allowUnlinked = s.allowUnlinked;
+  if (s.format === 'xlsx' || s.format === 'csv') p.format = s.format;
   if (Array.isArray(s.cols)) {
     const seen: Record<string, 1> = {}, cols: ProfileCol[] = [];
     for (const c of s.cols as unknown[]) {
       if (!c || typeof c !== 'object') continue;
       const col = c as Record<string, unknown>, def = typeof col.id === 'string' ? colDef(col.id) : null;
-      if (def && !seen[def.id]) { seen[def.id] = 1; cols.push({ id: def.id, on: !!col.on, header: String(col.header || def.header) }); }
+      if (!def || seen[def.id]) continue;
+      seen[def.id] = 1;
+      if (isFixed(def.id)) cols.push({ id: def.id, on: !!col.on, header: String(col.header ?? ''), value: String(col.value ?? '') });
+      else cols.push({ id: def.id, on: !!col.on, header: String(col.header || def.header) });
     }
-    for (const c of p.cols) if (!seen[c.id]) cols.push(c);
+    /* una colonna aggiunta da una versione più recente dell'app non deve comparire da sola in un file ricavato da un modello */
+    for (const c of p.cols) if (!seen[c.id]) cols.push(p.template ? { ...c, on: false } : c);
     p.cols = cols;
   }
   return p;
 }
 
-/** Il valore di una colonna per una riga dell'ordine, già nel formato del tracciato. */
-function value(id: string, order: Order, r: Row, p: Profile): string {
+/** Il valore di una colonna per una riga dell'ordine, già nel formato del tracciato. `i` è la posizione della riga, da zero. */
+function value(col: ProfileCol, order: Order, r: Row, i: number, p: Profile): string {
+  const id = col.id;
+  if (isFixed(id)) return String(col.value ?? '');
   const c = rowCalc(r), gift = !!r.omaggio, d = p.dec, lk = r.link && r.link.ok ? r.link : null;
   switch (id) {
+    case 'n_riga': return String(i + 1);
     case 'cod_articolo': return lk ? lk.cod : String(r.cod_articolo || '').trim();
     case 'descrizione': return lk && lk.desc && p.descSrc !== 'doc' ? lk.desc : String(r.descrizione || '').trim();
     case 'um': return (lk && lk.um) || String(r.um || '').trim() || p.um || '';
@@ -101,8 +117,23 @@ export function buildTable(order: Order, p: Profile): Table {
   const cols = p.cols.filter(c => c.on);
   return {
     headers: cols.map(c => c.header),
-    rows: order.righe.map(r => cols.map(c => value(c.id, order, r, p)))
+    rows: order.righe.map((r, i) => cols.map(c => value(c, order, r, i, p)))
   };
+}
+
+/**
+ * La stessa tabella per un file Excel: i valori numerici diventano numeri veri, così il gestionale li somma e li ordina;
+ * tutto il resto resta testo, compresi i codici che cominciano per zero.
+ */
+export function buildSheet(order: Order, p: Profile): (string | number)[][] {
+  const cols = p.cols.filter(c => c.on), table = buildTable(order, { ...p, dec: '.' });
+  const rows: (string | number)[][] = table.rows.map(r => r.map((v, k) => {
+    const col = cols[k];
+    if (!col || !isNumeric(col.id) || v === '') return v;
+    const n = Number(v);
+    return isFinite(n) ? n : v;
+  }));
+  return p.header ? [table.headers as (string | number)[]].concat(rows) : rows;
 }
 
 function cell(v: unknown, sep: string): string {
@@ -136,7 +167,7 @@ function slug(s: unknown, n = 24): string {
   const cut = full.slice(0, n), i = cut.lastIndexOf('-');
   return (full.charAt(n) !== '-' && i > 3 ? cut.slice(0, i) : cut).replace(/-+$/, '');
 }
-export function fileName(order: Order): string {
+export function fileName(order: Order, ext = 'csv'): string {
   const parts = ['ordine', slug(order.mandante), slug(order.cliente), slug(order.numero, 16), order.data || ''].filter(Boolean);
-  return parts.join('_') + '.csv';
+  return parts.join('_') + '.' + ext;
 }

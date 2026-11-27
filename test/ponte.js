@@ -123,7 +123,8 @@ function ponteSimulato({ chiaveGiusta, ordine }) {
     assert.equal(await page.isVisible('#keyNote'), true, 'senza chiave torna l\'invito a impostarla');
     await page.fill('#msg', 'dieci cartoni di passata');
     await page.click('#btnRead');
-    await page.waitForFunction(() => /chiave API/.test(document.getElementById('readStatus').textContent));
+    /* senza chiave legge questo dispositivo: qui non ci sono righe, e l'app propone di aggiungere Claude */
+    await page.waitForFunction(() => /Non ho trovato righe/.test(document.getElementById('readStatus').textContent));
     await page.fill('#msg', '');
     await page.click('#btnKeyNote');
     await page.fill('#ai-key', CHIAVE_FINTA);

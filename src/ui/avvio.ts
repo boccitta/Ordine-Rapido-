@@ -12,7 +12,7 @@ import { restoreDraft, wireDraft } from './bozza.ts';
 import { $ } from './dom.ts';
 import { showProblem, wireProblems } from './errori.ts';
 import { wireExport } from './esporta.ts';
-import { renderAi, renderCols, syncOpts, wireSettings } from './impostazioni.ts';
+import { renderAi, renderCols, renderTemplateInfo, syncOpts, wireSettings } from './impostazioni.ts';
 import { wireReading } from './lettura.ts';
 import { loadProfile, loadUi } from './preferenze.ts';
 import { refresh, renderHeadRow, renderRows, wireRows } from './righe.ts';
@@ -32,7 +32,7 @@ function start(): void {
 
   wireArchive(); wireHead(); wireRows(); wireExport(); wireSettings(); wireReading(); wireScreens(); wireDraft();
 
-  applySkin(); syncOpts(); renderHeadRow(); renderCols(); fillHead(); renderRows(); refresh(); renderArchInfo(); renderAi(); paint();
+  applySkin(); syncOpts(); renderHeadRow(); renderCols(); renderTemplateInfo(); fillHead(); renderRows(); refresh(); renderArchInfo(); renderAi(); paint();
   $('ver').textContent = INFO.versione; $('ver').title = 'Versione ' + INFO.versione;
   $('aboutVer').textContent = 'Ordine Rapido ' + INFO.versione;
   if (INFO.sorgente) { $<HTMLAnchorElement>('aboutSrc').href = INFO.sorgente; $('aboutSrcBox').hidden = false; }

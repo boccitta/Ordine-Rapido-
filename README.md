@@ -1,8 +1,8 @@
 # Ordine Rapido
 
-**Ordine Rapido** trasforma gli ordini che ricevi dai clienti (PDF, Excel, foto o un semplice messaggio) in un file CSV pronto da importare nel gestionale, usando **solo codici che nel gestionale esistono già**.
+**Ordine Rapido** trasforma gli ordini che ricevi dai clienti (PDF, Excel, foto o un semplice messaggio) in un file CSV o Excel pronto da importare nel gestionale, fatto come il gestionale lo vuole e usando **solo codici che nel gestionale esistono già**.
 
-È pensato per gli agenti di commercio, è gratuito ed è software libero con licenza GPL-3.0. Funziona da solo sul tuo computer: non ha un server e non ha bisogno di un dominio.
+È pensato per gli agenti di commercio, è gratuito ed è software libero con licenza GPL-3.0. Funziona da solo sul tuo computer: non ha un server, non ha bisogno di un dominio e **legge gli ordini senza chiave API e senza inviare nulla**. Chi vuole può aggiungere Claude per i documenti più difficili.
 
 ![La schermata di controllo di Ordine Rapido con un ordine di esempio](docs/img/controlla.png)
 
@@ -12,7 +12,7 @@ Il progetto è nato dentro «AI TUOI ORDINI», un'iniziativa sull'uso dell'intel
 
 - [Che cosa fa](#che-cosa-fa)
 - [L'archivio del gestionale](#larchivio-del-gestionale)
-- [Lettura automatica e chiave API](#lettura-automatica-e-chiave-api)
+- [Lettura degli ordini](#lettura-degli-ordini)
 - [Scaricare e avviare](#scaricare-e-avviare)
 - [Aggiornare senza perdere gli archivi](#aggiornare-senza-perdere-gli-archivi)
 - [Dati e riservatezza](#dati-e-riservatezza)
@@ -24,18 +24,19 @@ Il progetto è nato dentro «AI TUOI ORDINI», un'iniziativa sull'uso dell'intel
 
 ## Che cosa fa
 
-Il lavoro si svolge in tre schermate.
+La prima volta dici all'app come lavorare, in due passaggi: carichi il **modello del gestionale**, cioè un file di esempio nel formato che il gestionale importa, e l'**archivio** di articoli, clienti e mandanti. Da lì in poi il lavoro si svolge in tre schermate.
 
 1. **Carica.** Trascini il file dell'ordine oppure incolli il messaggio del cliente. L'app lo legge e lo trascrive in righe: codice, descrizione, colli, quantità, prezzo, sconti, omaggi.
 2. **Controlla.** Ogni riga viene confrontata con l'archivio del tuo gestionale. Vedi subito che cosa è a posto e che cosa va sistemato: righe non trovate, abbinamenti da confermare, totali diversi da quelli scritti sul documento.
-3. **Esporta.** Scarichi il CSV, oppure copi le righe, e lo importi nel gestionale.
+3. **Esporta.** Scarichi il file (CSV o Excel), oppure copi le righe, e lo importi nel gestionale.
 
 Altre cose utili:
 
 - Confronta colli, pezzi e importo con i totali scritti sul documento del cliente.
 - Riconosce le righe omaggio e le esporta come sconto 100 %, prezzo zero o solo con la colonna Omaggio, a tua scelta.
 - Impara gli abbinamenti che confermi: la volta dopo, la stessa descrizione dello stesso cliente viene collegata da sola.
-- Il tracciato del file si adatta al gestionale: colonne, ordine, intestazioni, separatore, decimali, formato delle date, codifica.
+- Il file si adatta al gestionale: carichi un suo file di esempio e l'app ne ricava colonne, ordine, intestazioni, separatore, decimali, formato delle date e codifica. Le colonne che il gestionale vuole sempre uguali, come il tipo di documento, diventano valori fissi. Ogni dettaglio si può ritoccare a mano.
+- Se l'ordine indica solo i cartoni e l'archivio dice quanti pezzi stanno in un collo, la quantità in pezzi viene calcolata.
 - Tema chiaro e scuro, utilizzabile anche da telefono.
 
 ## L'archivio del gestionale
@@ -46,7 +47,7 @@ Prima di lavorare esporti dal gestionale, in CSV o Excel, tre elenchi e li caric
 
 | Archivio | Colonne riconosciute | A cosa serve |
 |---|---|---|
-| **Articoli** | codice (obbligatorio), descrizione, EAN, unità di misura, casa mandante, prezzo di listino | Ogni riga dell'ordine viene collegata a un articolo esistente |
+| **Articoli** | codice (obbligatorio), descrizione, EAN, unità di misura, casa mandante, prezzo di listino, pezzi per collo | Ogni riga dell'ordine viene collegata a un articolo esistente |
 | **Clienti** | codice (obbligatorio), ragione sociale, partita IVA | Nel file finisce il codice cliente del gestionale |
 | **Mandanti** | codice (obbligatorio), ragione sociale, partita IVA | Nel file finisce il codice della casa mandante |
 
@@ -69,9 +70,33 @@ L'app non scrive nel gestionale e non lo interroga: lavora sugli elenchi che esp
 
 Sul tuo dispositivo, dentro l'app o il browser che stai usando. Non vengono inviati a nessuno. Dal pannello Archivio puoi fare una **copia di sicurezza** (archivi, abbinamenti imparati e tracciato in un solo file) e ripristinarla su un altro computer o dopo un aggiornamento.
 
-## Lettura automatica e chiave API
+## Lettura degli ordini
 
-Per leggere PDF, foto e messaggi l'app usa Claude, il modello di Anthropic, attraverso la **tua chiave API**.
+Gli ordini si possono leggere in due modi. Lo scegli in **Impostazioni → Chi legge gli ordini**.
+
+### Su questo dispositivo (senza chiave, senza internet)
+
+È il modo predefinito: non serve una chiave API, non costa nulla e **niente esce dal dispositivo**.
+
+| Che cosa | Come viene letto |
+|---|---|
+| Excel, CSV | Le celle così come sono: l'app riconosce la riga con i nomi delle colonne e incolonna codici, colli, quantità, prezzi, sconti e importi |
+| PDF con testo | Il testo e la sua posizione sulla pagina: è la posizione a dire in quale colonna sta un numero |
+| Messaggi e mail | Le righe scritte a parole («6 cartoni di…», «passata 10 ct»), le tabelle scritte a spazi e le correzioni più comuni («anzi fai 12», «togli i…») |
+| Foto e scansioni | Prima il riconoscimento dei caratteri (modelli PP-OCRv6, inclusi nell'app), poi le stesse regole |
+
+Non c'è un'intelligenza artificiale che interpreta: sono regole, ancorate al tuo archivio. I codici si riconoscono perché esistono nell'archivio, cliente e casa mandante perché il loro nome o la loro partita IVA è scritta nel documento, e una descrizione senza codice viene confrontata con le descrizioni degli articoli per **proporre** quello giusto, da confermare.
+
+Limiti da conoscere:
+
+- La **scrittura a mano** viene letta male: qualche riga può mancare o avere lettere sbagliate. L'app lo segnala ogni volta che legge una foto.
+- Le impaginazioni insolite possono non essere riconosciute: in quel caso l'app lo dice e propone Claude oppure le righe a mano.
+- La lettura delle foto è inclusa nelle app per Windows, Linux e Mac e nella cartella `app/`; non è nella versione in un solo file `Ordine-Rapido.html`, che resterebbe troppo pesante. Aggiunge circa 28 MB e si carica solo alla prima foto.
+- Su un computer recente una foto richiede pochi secondi, su uno modesto fino a una ventina.
+
+### Con Claude (facoltativo)
+
+Per le scritture a mano e i documenti difficili puoi far leggere a Claude, il modello di Anthropic, con la **tua chiave API**.
 
 1. Crea una chiave nella [Console di Anthropic](https://platform.claude.com/settings/keys).
 2. Nell'app apri **Impostazioni**, incolla la chiave e premi **Salva e prova**.
@@ -79,13 +104,12 @@ Per leggere PDF, foto e messaggi l'app usa Claude, il modello di Anthropic, attr
 
 Cose da sapere:
 
-- **Serve internet** per la lettura automatica. Tutto il resto funziona senza connessione.
+- **Serve internet**, e il documento dell'ordine viene inviato ad Anthropic.
 - **Ogni lettura ha un costo**, addebitato da Anthropic all'account della chiave. Dipende dal modello e dalla lunghezza del documento: consulta i [prezzi dei modelli](https://platform.claude.com/docs/en/models/overview).
-- **Senza chiave l'app funziona lo stesso**: scrivi le righe a mano, le colleghi all'archivio, controlli ed esporti.
 - La chiave resta sul tuo dispositivo e viene inviata soltanto ad Anthropic. Non entra negli archivi, nelle copie di sicurezza né nel file esportato. Puoi anche scegliere di non farla ricordare. Nell'app desktop è custodita cifrata dal sistema operativo e, una volta salvata, non viene più mostrata: se ne vedono solo gli ultimi caratteri.
 - Vengono letti al massimo le prime 6 pagine di un PDF e 12 immagini per ordine.
 
-Il modello trascrive, non decide: i codici validi sono solo quelli dell'archivio, e ogni lettura va controllata prima di esportare.
+Chiunque legga, vale la stessa regola: la lettura trascrive, non decide. I codici validi sono solo quelli dell'archivio, e ogni ordine va controllato prima di esportare.
 
 ## Scaricare e avviare
 
@@ -154,12 +178,12 @@ Scarica i pacchetti soltanto dalla pagina ufficiale dei rilasci di questa reposi
 | Archivi di articoli, clienti e mandanti | Sul dispositivo | No, salvo quanto indicato sotto per i suggerimenti |
 | Abbinamenti imparati e tracciato del file | Sul dispositivo | No |
 | Chiave API | Sul dispositivo; nell'app desktop cifrata dal sistema operativo | Solo verso Anthropic, per autenticare le letture |
-| Documento dell'ordine (testo e immagini delle pagine) o messaggio incollato | Non viene salvato | **Sì, verso Anthropic**, solo quando premi Leggi ordine |
+| Documento dell'ordine (testo e immagini delle pagine) o messaggio incollato | Non viene salvato | Con la lettura sul dispositivo, no. **Sì, verso Anthropic**, se hai scelto di far leggere a Claude e premi Leggi ordine |
 | Ordine in lavorazione (righe e dati dell'ordine, così come li stai controllando) | Sul dispositivo, per ritrovarlo se l'app si chiude; sparisce quando premi Nuovo ordine | No |
-| Righe non trovate e articoli candidati | — | **Sì, verso Anthropic**, per i suggerimenti di abbinamento: partono da soli dopo una lettura se restano righe non trovate, oppure quando premi Suggerisci abbinamenti. Vengono inviati descrizione, codice e prezzo della riga, e codice, descrizione, unità di misura e listino di al massimo 10 articoli candidati per riga |
-| File CSV esportato | Dove lo salvi tu | No |
+| Righe non trovate e articoli candidati | — | Con la lettura sul dispositivo, no: le proposte si calcolano sul posto. Se legge Claude, **sì, verso Anthropic**, per i suggerimenti di abbinamento: partono da soli dopo una lettura se restano righe non trovate, oppure quando premi Suggerisci abbinamenti. Vengono inviati descrizione, codice e prezzo della riga, e codice, descrizione, unità di misura e listino di al massimo 10 articoli candidati per riga |
+| File esportato (CSV o Excel) | Dove lo salvi tu | No |
 
-L'app può collegarsi a un solo indirizzo, `api.anthropic.com`, e solo se hai impostato una chiave. Non ha statistiche d'uso, pubblicità o tracciamento. Come Anthropic tratta i dati ricevuti tramite API è descritto nelle sue condizioni; valuta tu se sono adatte ai documenti dei tuoi clienti.
+L'app può collegarsi a un solo indirizzo, `api.anthropic.com`, e solo se hai scelto di far leggere gli ordini a Claude con la tua chiave. Non ha statistiche d'uso, pubblicità o tracciamento. Come Anthropic tratta i dati ricevuti tramite API è descritto nelle sue condizioni; valuta tu se sono adatte ai documenti dei tuoi clienti.
 
 Nella versione portatile i dati sono salvati nel browser: altre pagine HTML aperte dal tuo computer con lo stesso browser potrebbero leggerli. Apri solo file di cui ti fidi, oppure usa l'app desktop, che tiene i dati in uno spazio suo. I dettagli sono in [SECURITY.md](SECURITY.md).
 
@@ -177,7 +201,9 @@ Un controllo automatico (`npm run controlla-dati`) blocca le modifiche che conte
 
 ## Il file per il gestionale
 
-Il file è un CSV con una riga per ogni riga d'ordine. I dati di testata (numero e data dell'ordine, cliente, mandante, pagamento, destinazione) sono ripetuti su ogni riga, così il gestionale riceve l'ordine intero.
+Il modo più semplice per ottenere il file giusto è caricare il **modello del gestionale**: in **Impostazioni → File per il gestionale** scegli un file di esempio nel formato che il gestionale importa (un CSV o un Excel con i nomi delle colonne, meglio se con qualche riga compilata). L'app riconosce le colonne dal nome, ti mostra che cosa metterà in ognuna e ricava dalle righe di esempio separatore, decimali, date e codifica. Le colonne che non corrispondono a un dato dell'ordine possono restare vuote oppure avere sempre lo stesso valore. Da quel momento il file esportato ha le stesse colonne, nello stesso ordine.
+
+Senza modello vale il tracciato predefinito: un CSV con una riga per ogni riga d'ordine. I dati di testata (numero e data dell'ordine, cliente, mandante, pagamento, destinazione) sono ripetuti su ogni riga, così il gestionale riceve l'ordine intero.
 
 Con le impostazioni iniziali il file è fatto così:
 
@@ -187,7 +213,7 @@ CodArticolo;Descrizione;Unimis;Quantita;Colli;Prezzo;Sconto1;Sconto2;Omaggio;Num
 300301;TONNO ALL'OLIO DI OLIVA GR 80 X 3;PZ;16;1;2,95;100;;S;2026/0412;23/11/2026;30/11/2026;C0012;MARKET FANTASIA S.R.L.;01234500033;M001;CONSERVE FANTASIA S.P.A.;RIBA 30 GG DF FM;;
 ```
 
-Separatore punto e virgola, decimali con la virgola, date nel formato giorno/mese/anno, codifica Windows (ANSI). Tutto si cambia in **Impostazioni → Tracciato del file**. L'elenco completo delle colonne e dei formati è in [docs/FORMATI.md](docs/FORMATI.md).
+Separatore punto e virgola, decimali con la virgola, date nel formato giorno/mese/anno, codifica Windows (ANSI). Tutto si cambia in **Impostazioni → File per il gestionale**, dove puoi anche scegliere un file Excel (`.xlsx`) al posto del CSV: in quel caso quantità, prezzi e sconti sono scritti come numeri veri. L'elenco completo delle colonne e dei formati è in [docs/FORMATI.md](docs/FORMATI.md).
 
 Il tracciato è stato pensato prendendo come riferimento GesACom versione 4.0.0.5, e la schermata Esporta ne riporta la procedura di importazione. Il principio vale per qualunque gestionale che importi ordini da CSV o righe incollate da Excel.
 
@@ -222,12 +248,15 @@ Regole e procedura completa: [docs/RILASCI.md](docs/RILASCI.md).
 Il codice è scritto in TypeScript, senza framework, e diviso in moduli; uno script lo compila nei file che l'app esegue. Per provarla: `npm ci`, `npm run compila`, poi apri `app/index.html`.
 
 ```text
-src/core/         logica pura: calcoli, controlli, abbinamento con l'archivio, tracciato, copia di sicurezza
+src/core/         logica pura: calcoli, controlli, abbinamento con l'archivio, tracciato, modello del gestionale, copia di sicurezza
+src/core/lettura/ lettura degli ordini sul dispositivo: tabelle, messaggi, testata, senza intelligenza artificiale
+src/ocr/          il motore che riconosce i caratteri nelle foto (gira in un processo separato)
 src/anthropic/    come si compone la richiesta ad Anthropic e come si legge la risposta
 src/piattaforma/  i tre ambienti (browser, app desktop, dentro Claude) dietro un unico contratto
 src/ui/           interfaccia: schermate, righe, archivio, lettura, esportazione, impostazioni
 src/desktop/      app desktop (Electron): processo principale, ponte con la finestra, chiave cifrata, archivi su file
-app/              la pagina: index.html, style.css, vendor/ (librerie e caratteri inclusi); app.js è generato
+app/              la pagina: index.html, style.css, vendor/ (librerie e caratteri inclusi); app.js e vendor/ocr/ sono generati
+terzi/            file di terzi che non stanno in un pacchetto npm: i modelli per il riconoscimento dei caratteri
 esempi/           dati di fantasia per provare
 scripts/          compilazione, file unico, versione, controllo dei dati
 test/             prove automatiche

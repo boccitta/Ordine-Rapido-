@@ -15,15 +15,20 @@ export type XlsxSheet = Record<string, unknown>;
 export interface XlsxBook { SheetNames: string[]; Sheets: Record<string, XlsxSheet> }
 export interface XlsxLib {
   read(data: ArrayBuffer, opts: Record<string, unknown>): XlsxBook;
+  /** Scrive una cartella di lavoro: con type 'array' restituisce i byte del file. */
+  write(book: XlsxBook, opts: Record<string, unknown>): ArrayBuffer;
   utils: {
     sheet_to_json(sheet: XlsxSheet, opts: Record<string, unknown>): unknown[][];
     sheet_to_csv(sheet: XlsxSheet, opts: Record<string, unknown>): string;
+    aoa_to_sheet(rows: readonly (readonly unknown[])[]): XlsxSheet;
+    book_new(): XlsxBook;
+    book_append_sheet(book: XlsxBook, sheet: XlsxSheet, name: string): void;
   };
 }
 
 /* ----- pdf.js ----- */
 export interface PdfViewport { width: number; height: number }
-export interface PdfTextItem { str?: string; transform: number[]; width?: number }
+export interface PdfTextItem { str?: string; transform: number[]; width?: number; height?: number }
 export interface PdfPage {
   getTextContent(): Promise<{ items: PdfTextItem[] }>;
   getViewport(opts: { scale: number }): PdfViewport;
@@ -49,7 +54,8 @@ function vendorUrl(name: string): string {
 }
 
 const loaded: Record<string, Promise<void>> = {};
-function loadScript(src: string): Promise<void> {
+/** Carica una volta sola uno script che viaggia con l'app. */
+export function loadScript(src: string): Promise<void> {
   let p = loaded[src];
   if (!p) {
     p = new Promise<void>((res, rej) => {

@@ -8,11 +8,27 @@
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
 import { unlinked } from '../core/ordine.ts';
-import { buildTable, fileName, toCp1252, toDelimited } from '../core/tracciato.ts';
+import { buildSheet, buildTable, fileName, toCp1252, toDelimited } from '../core/tracciato.ts';
 import { errorCode } from '../core/tipi.ts';
 import { $, icon, status } from './dom.ts';
+import { loadXlsx } from './librerie.ts';
 import { didExport } from './schermate.ts';
 import { S, platform } from './stato.ts';
+
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+/** true se il gestionale importa un file Excel invece di un CSV. */
+function isXlsx(): boolean { return S.profile.format === 'xlsx'; }
+
+/** Il file da salvare: un CSV nella codifica del tracciato, oppure un foglio Excel con i numeri scritti come numeri. */
+async function buildFile(): Promise<{ name: string; data: string | Uint8Array; type: string }> {
+  if (isXlsx()) {
+    const XLSX = await loadXlsx(), book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(buildSheet(S.order, S.profile)), 'Ordine');
+    return { name: fileName(S.order, 'xlsx'), data: new Uint8Array(XLSX.write(book, { type: 'array', bookType: 'xlsx' })), type: XLSX_TYPE };
+  }
+  const text = currentText(S.profile.sep);
+  return { name: fileName(S.order), data: S.profile.enc === 'utf8' ? '﻿' + text : toCp1252(text), type: 'text/csv' };
+}
 
 /** Il testo del file con il separatore indicato: quello del tracciato per il CSV, la tabulazione per «Copia righe». */
 export function currentText(sep: string): string { return toDelimited(buildTable(S.order, S.profile), sep, S.profile.header); }
@@ -49,7 +65,9 @@ export function paintExport(): void {
     : state === 'blocked' ? 'Collega ogni riga a un articolo dell\'archivio, oppure eliminala: così nel gestionale non nascono codici nuovi.'
     : state === 'done' ? 'Ora importalo nel gestionale. Per un altro ordine premi Nuovo ordine.' : 'Scaricalo, oppure copia le righe, e importalo nel gestionale.';
   const ic = $('readyIcon'); ic.textContent = ''; ic.append(icon(state === 'done' ? 'ok' : state === 'ready' ? 'file' : 'alert'));
-  $('fileName').textContent = o.righe.length ? fileName(o) : '';
+  $('fileName').textContent = o.righe.length ? fileName(o, isXlsx() ? 'xlsx' : 'csv') : '';
+  $('btnDownloadT').textContent = $('howDl').textContent = isXlsx() ? 'Scarica Excel' : 'Scarica CSV';
+  $('btnCopyCsv').textContent = isXlsx() ? 'Copia come testo' : 'Copia CSV';
   /* il pulsante in evidenza è sempre il prossimo passo utile: scaricare, sistemare, oppure cominciare un altro ordine */
   const canExport = state === 'ready' || state === 'done';
   $('btnFix').hidden = canExport;
@@ -64,27 +82,27 @@ export function wireExport(): void {
     if (!guard()) return;
     void copyText(currentText('\t'), 'Righe copiate. In GesACom: clic destro nell\'area righe, poi Importa righe da Excel.');
   });
-  $('btnCopyCsv').addEventListener('click', () => { if (!guard()) return; void copyText(currentText(S.profile.sep), 'CSV copiato negli appunti.'); });
+  $('btnCopyCsv').addEventListener('click', () => { if (!guard()) return; void copyText(currentText(S.profile.sep), isXlsx() ? 'Testo copiato negli appunti.' : 'CSV copiato negli appunti.'); });
   $('btnDownload').addEventListener('click', async () => {
     if (!S.order.righe.length) { expStatus('Non ci sono righe da esportare.', 'warn'); return; }
     if (!guard()) return;
     const p = platform();
     await p.ready;
-    const text = currentText(S.profile.sep), name = fileName(S.order);
-    const data = S.profile.enc === 'utf8' ? '﻿' + text : toCp1252(text);
     if (!p.files.available()) {
       $('btnDownload').hidden = true; document.body.classList.add('no-dl');
-      expStatus('Da qui non posso salvare file. Usa Copia CSV e incollalo in un file di testo.', 'warn');
+      expStatus('Da qui non posso salvare file. Usa ' + $('btnCopyCsv').textContent + ' e incollalo in un file.', 'warn');
       return;
     }
     try {
-      await p.files.save(name, data, 'text/csv');
-      expStatus((p.kind === 'claude' ? 'File salvato: ' : 'File scaricato: ') + name, 'ok'); didExport();
+      const file = await buildFile();
+      await p.files.save(file.name, file.data, file.type);
+      expStatus((p.kind === 'claude' ? 'File salvato: ' : 'File scaricato: ') + file.name, 'ok'); didExport();
     } catch (e) {
       const code = errorCode(e);
       if (code === 'declined') expStatus('Salvataggio annullato.', '');
       else if (code === 'rate_limited') expStatus('C\'è già una richiesta di salvataggio aperta. Riprova tra poco.', 'warn');
-      else expStatus('Salvataggio non riuscito qui. Usa Copia CSV.', 'bad');
+      else if (code === 'local' && e instanceof Error) expStatus(e.message, 'bad');
+      else expStatus('Salvataggio non riuscito qui. Usa ' + $('btnCopyCsv').textContent + '.', 'bad');
     }
   });
 }

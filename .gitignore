@@ -40,6 +40,7 @@ dist/
 # Codice compilato da "npm run compila" a partire da src/: non si modifica a mano.
 # La barra iniziale limita la regola alla radice: src/desktop/ è codice sorgente e va tenuto.
 /app/app.js
+/app/vendor/ocr/
 /desktop/
 *.log
 .DS_Store

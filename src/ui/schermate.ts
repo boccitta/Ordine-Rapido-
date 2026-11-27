@@ -11,6 +11,7 @@ import type { Totals } from '../core/ordine.ts';
 import type { Check, RowText } from '../core/tipi.ts';
 import { $, button, count, el, find, icon, money, openDlg, status, wireDlg } from './dom.ts';
 import { expStatus, paintExport } from './esporta.ts';
+import { pickTemplate } from './impostazioni.ts';
 import { addFiles, readStatus, renderFiles } from './lettura.ts';
 import { saveUi } from './preferenze.ts';
 import { setOrder } from './righe.ts';
@@ -127,6 +128,25 @@ export function paintChip(): void {
   $('archChipShort').textContent = a ? count(a) + (a === 1 ? ' articolo' : ' articoli') : 'Carica l\'archivio';
 }
 
+/**
+ * I due passaggi «per cominciare» nella schermata Carica: il modello del gestionale e l'archivio.
+ * Spariscono da soli quando sono fatti entrambi, oppure quando si sceglie di nasconderli.
+ */
+export function paintSetup(): void {
+  const tplName = S.profile.template, arts = S.arch.art.length;
+  $('setup').hidden = S.setupHidden || !S.archReady || (!!tplName && arts > 0);
+  $('suTpl').dataset.state = tplName ? 'done' : 'todo';
+  $('suTplT').textContent = tplName ? 'In uso: ' + tplName : 'Un file di esempio nel formato che il gestionale importa: così l\'app sa come compilarlo.';
+  $('btnSuTpl').textContent = tplName ? 'Cambia' : 'Carica il modello';
+  $('suArch').dataset.state = arts ? 'done' : 'todo';
+  $('suArchT').textContent = arts ? count(arts) + (arts === 1 ? ' articolo caricato' : ' articoli caricati') : 'Articoli, clienti e mandanti esportati dal gestionale: nel file finiscono solo codici che esistono.';
+  $('btnSuArch').textContent = arts ? 'Apri' : 'Carica l\'archivio';
+  for (const id of ['suTpl', 'suArch']) {
+    const n = $(id).querySelector('.n');
+    if (n) { n.textContent = ''; if ($(id).dataset.state === 'done') n.append(icon('check')); else n.textContent = id === 'suTpl' ? '1' : '2'; }
+  }
+}
+
 export function didExport(): void { S.exported = true; paint(); }
 /** Evidenzia per un attimo le righe appena lette. */
 export function freshRows(): void {
@@ -172,6 +192,9 @@ export function wireScreens(): void {
     openOrder('none', ''); S.headEdit = false; show('carica', 'btnPick');
   });
   $('btnCols').addEventListener('click', () => { S.allCols = !S.allCols; saveUi(); paintCols(); });
+  $('btnSuTpl').addEventListener('click', pickTemplate);
+  $('btnSuArch').addEventListener('click', () => openDlg('archDlg'));
+  $('btnSuHide').addEventListener('click', () => { S.setupHidden = true; saveUi(); paintSetup(); $('btnPick').focus(); });
 
   wireDlg('archDlg', 'archClose', 'archChip'); wireDlg('setDlg', 'setClose', 'btnSet'); wireDlg('origDlg', 'origClose', 'origBox');
   $('archChip').addEventListener('click', () => openDlg('archDlg'));
