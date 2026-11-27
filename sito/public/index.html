@@ -4,8 +4,8 @@
   caratteri, immagini e marchio stanno in questa cartella. Si pubblica così com'è (su Render: Root Directory «sito», Publish Directory «public»; vedi sito/LEGGIMI.md).
   Copyright (C) 2026 Roberto Murenu. I testi e la grafica di questa pagina seguono la licenza del progetto (GNU GPL versione 3).
 
-  Quando esisterà una pagina pubblica da cui scaricare l'app, metti il suo indirizzo al posto di «#averla»
-  nei due collegamenti con la classe «scarica».
+  I pulsanti per scaricare (classe «dl», nel capitolo «averla») puntano ai file della versione 1.0.0 su GitHub:
+  a ogni nuova versione vanno aggiornati numero, nomi dei file e dimensioni.
 -->
 <html lang="it">
 <head>
@@ -158,9 +158,19 @@ h1 span{display:block;color:var(--muted);font-weight:700}
 .dati span{font-size:15.5px;opacity:.86;line-height:1.5;display:block}
 
 .forme{list-style:none;margin:40px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.forme li{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
-.forme b{display:block;font:700 16.5px var(--display);color:var(--ink);margin-bottom:5px}
-.forme span{font-size:14.5px;color:var(--muted);line-height:1.45;display:block}
+.forme li{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.forme li>b{display:block;font:800 19px var(--display);color:var(--ink);letter-spacing:-.015em}
+.forme li>span{font-size:14.5px;color:var(--muted);line-height:1.45;display:block;margin-top:-8px}
+.dl{display:grid;gap:2px;background:var(--ink);color:var(--paper);text-decoration:none;border-radius:11px;padding:11px 14px;font:700 15px var(--display);letter-spacing:-.01em}
+.dl:hover{background:var(--cyan);color:#0B1E49}
+.dl small{font:500 12.5px var(--body);opacity:.8;letter-spacing:0}
+.dl.secondo{background:transparent;color:var(--ink);border:1.5px solid var(--line-2)}
+.dl.secondo:hover{border-color:var(--cyan);background:var(--cyan-soft);color:var(--ink)}
+.forme details{border:0;margin-top:auto}
+.forme summary{font:600 14px var(--body);padding:4px 24px 4px 0;color:var(--cyan-ink)}
+.forme summary::after{top:0;font-size:20px}
+.forme details p{font-size:14px;padding:4px 0 6px;line-height:1.5}
+.forme code{font:500 12.5px var(--mono);background:var(--paper-2);padding:1px 5px;border-radius:5px}
 .avviso{margin-top:20px;font-size:15.5px;color:var(--muted);max-width:46em}
 
 .domande{margin-top:34px;border-top:1px solid var(--line-2)}
@@ -201,7 +211,7 @@ footer.fine .marchio img{width:28px;height:28px}
     <nav aria-label="Sezioni">
       <a href="#come">Come lavora</a>
       <a href="#impara">Impara</a>
-      <a href="#averla">Come averla</a>
+      <a href="#averla">Scarica</a>
       <a href="#domande">Domande</a>
     </nav>
   </header>
@@ -215,7 +225,7 @@ footer.fine .marchio img{width:28px;height:28px}
       <div class="azioni">
         <a class="bottone" href="#come">Guarda come lavora
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14m0 0-6-6m6 6 6-6"/></svg></a>
-        <a class="piano scarica" href="#averla">Come averla</a>
+        <a class="piano scarica" href="#averla">Scaricala gratis</a>
       </div>
       <dl class="fatti">
         <div><dt>0</dt><dd>chiavi API da comprare: legge da sola, sul tuo computer</dd></div>
@@ -423,15 +433,42 @@ footer.fine .marchio img{width:28px;height:28px}
   <section class="cap" id="averla" aria-labelledby="h-averla">
     <div class="num" aria-hidden="true">08</div>
     <div>
-      <h2 id="h-averla">Quattro forme, la stessa app.</h2>
-      <p class="attacco">È gratuita. Scegli la forma più comoda per il computer che usi.</p>
+      <h2 id="h-averla">Scaricala. È gratuita.</h2>
+      <p class="attacco">Versione <b>1.0.0</b>, provata su Windows, Mac e Linux. Scegli il file per il computer che usi: dopo il primo avvio non serve nient'altro.</p>
       <ul class="forme">
-        <li><b>Windows</b><span>Si installa nel menu Start, oppure si avvia da un solo file senza installare.</span></li>
-        <li><b>Mac</b><span>Per i Mac con processore Apple e per quelli con processore Intel.</span></li>
-        <li><b>Linux</b><span>Un file AppImage: si avvia senza installare.</span></li>
-        <li><b>Un file solo</b><span>Una pagina da aprire con il browser, su qualsiasi sistema. Legge tutto tranne le foto.</span></li>
+        <li>
+          <b>Windows</b><span>Windows 10 e 11, 64 bit.</span>
+          <a class="dl" href="https://github.com/boccitta/Ordine-Rapido-/releases/download/v1.0.0/Ordine-Rapido-1.0.0-windows-installazione.exe">Scarica e installa<small>125 MB · si aggiunge al menu Start</small></a>
+          <a class="dl secondo" href="https://github.com/boccitta/Ordine-Rapido-/releases/download/v1.0.0/Ordine-Rapido-1.0.0-windows-portatile.exe">Senza installare<small>115 MB · un solo file .exe</small></a>
+          <details><summary>Al primo avvio</summary>
+            <p>Se compare «PC protetto da Windows», premi <b>Ulteriori informazioni</b> e poi <b>Esegui comunque</b>: l'app è gratuita e non ha la firma digitale a pagamento.</p>
+            <p>Se Windows dice che l'app è <b>bloccata</b> e non offre «Esegui comunque», è attivo Smart App Control: usa il <b>file solo</b> qui accanto, che fa le stesse cose. Non disattivare Smart App Control per questo.</p>
+          </details>
+        </li>
+        <li>
+          <b>Mac</b><span>macOS recente.</span>
+          <a class="dl" href="https://github.com/boccitta/Ordine-Rapido-/releases/download/v1.0.0/Ordine-Rapido-1.0.0-mac-arm64.dmg">Mac con chip Apple<small>126 MB · M1 e successivi</small></a>
+          <a class="dl secondo" href="https://github.com/boccitta/Ordine-Rapido-/releases/download/v1.0.0/Ordine-Rapido-1.0.0-mac-x64.dmg">Mac con processore Intel<small>133 MB</small></a>
+          <details><summary>Al primo avvio</summary>
+            <p>Trascina l'app in Applicazioni. Il Mac la blocca la prima volta perché non ha la firma a pagamento di Apple: apri <b>Impostazioni di Sistema → Privacy e sicurezza</b>, premi <b>Apri comunque</b> e conferma. Dal secondo avvio si apre normalmente.</p>
+          </details>
+        </li>
+        <li>
+          <b>Linux</b><span>64 bit.</span>
+          <a class="dl" href="https://github.com/boccitta/Ordine-Rapido-/releases/download/v1.0.0/Ordine-Rapido-1.0.0-linux-x86_64.AppImage">Scarica l'AppImage<small>133 MB · si avvia senza installare</small></a>
+          <details><summary>Al primo avvio</summary>
+            <p>Rendi eseguibile il file (dalle proprietà del file, oppure con <code>chmod +x</code>) e avvialo. Su alcune distribuzioni serve il pacchetto <code>libfuse2</code>.</p>
+          </details>
+        </li>
+        <li>
+          <b>Un file solo</b><span>Qualsiasi computer, nel browser.</span>
+          <a class="dl" href="https://github.com/boccitta/Ordine-Rapido-/releases/download/v1.0.0/Ordine-Rapido.html">Scarica la pagina<small>3,4 MB · si apre con Chrome o Edge</small></a>
+          <details><summary>Da sapere</summary>
+            <p>È l'app intera in un file: salvalo in una cartella tua e aprilo con un doppio clic. Tienilo sempre nello stesso posto, con lo stesso nome. Legge tutto tranne le foto.</p>
+          </details>
+        </li>
       </ul>
-      <p class="avviso">La versione 1.0 è pronta e provata su Windows, Mac e Linux. La pagina pubblica da cui scaricarla è in preparazione: comparirà qui.</p>
+      <p class="avviso">Tutte le versioni, le note di ogni rilascio e le impronte per verificare i file sono nella <a href="https://github.com/boccitta/Ordine-Rapido-/releases/latest">pagina dei rilasci</a>. Il codice sorgente è pubblico, su <a href="https://github.com/boccitta/Ordine-Rapido-">GitHub</a>. Scarica l'app soltanto da qui o da quella pagina.</p>
     </div>
   </section>
 
@@ -442,7 +479,7 @@ footer.fine .marchio img{width:28px;height:28px}
       <div class="domande">
         <details><summary>Quanto costa?</summary><p>Niente. È software libero e gratuito. Paghi qualcosa solo se scegli di far leggere gli ordini a un'intelligenza artificiale: in quel caso il costo di ogni lettura lo addebita il servizio scelto (Anthropic, Google o OpenAI) al tuo account. In modalità automatica succede solo quando la lettura del computer non basta.</p></details>
         <details><summary>Con quali gestionali funziona?</summary><p>Con quelli che importano gli ordini da un file CSV o Excel. Il file si adatta caricando un esempio del formato richiesto. È nata lavorando con GesACom, ma non dipende da un gestionale in particolare e non scrive mai dentro il gestionale: prepara il file, l'importazione la fai tu.</p></details>
-        <details><summary>Serve internet?</summary><p>No, se legge il tuo computer. Serve solo se scegli Claude.</p></details>
+        <details><summary>Serve internet?</summary><p>Solo per scaricarla. Poi no, se legge il tuo computer; serve solo se scegli di far leggere gli ordini a Claude, Gemini o GPT.</p></details>
         <details><summary>E se l'ordine è scritto a mano?</summary><p>La lettura sul computer riconosce bene i documenti stampati, meno la calligrafia. Con un biglietto scritto a penna trova di solito una parte delle righe e te lo segnala: puoi completarle tu, oppure far leggere a Claude, Gemini o GPT.</p></details>
         <details><summary>Posso provarla senza usare dati veri?</summary><p>Sì. C'è un ordine di esempio con dati di fantasia, e la cartella del progetto contiene archivi inventati per fare tutte le prove.</p></details>
         <details><summary>Che cosa succede se sbaglia?</summary><p>Per questo c'è la schermata «Controlla». L'app trascrive e confronta, non decide al posto tuo: una riga che non corrisponde a un articolo del tuo archivio blocca l'esportazione, e ogni supposizione è scritta tra le note.</p></details>
@@ -453,6 +490,7 @@ footer.fine .marchio img{width:28px;height:28px}
   <footer class="fine">
     <a class="marchio" href="#" aria-label="Ordine Rapido, inizio pagina"><img src="marchio.svg" alt="" width="28" height="28">Ordine Rapido</a>
     <p>Software libero con licenza GNU GPL versione 3, distribuito senza alcuna garanzia: controlla sempre il file prima di importarlo. Copyright © 2026 Roberto Murenu.</p>
+    <p><a href="https://github.com/boccitta/Ordine-Rapido-">Codice sorgente su GitHub</a> · <a href="https://github.com/boccitta/Ordine-Rapido-/releases/latest">Tutte le versioni</a></p>
     <p>Progetto indipendente. GesACom, Excel, Windows, macOS, Claude e gli altri nomi citati appartengono ai rispettivi proprietari. Gli esempi di questa pagina usano dati di fantasia.</p>
   </footer>
 </div>

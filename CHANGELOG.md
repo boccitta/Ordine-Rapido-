@@ -12,7 +12,19 @@ Come si scrive una voce e come si pubblica una versione: [docs/RILASCI.md](docs/
 
 ## [Non rilasciato]
 
-Nessuna modifica in attesa.
+### Modificato
+
+#### Lettura più rapida con molti clienti imparati
+
+- **Che cosa cambia.** Prima di confrontare una riga del documento con le ricette dei clienti, l'app controlla in un attimo se la riga contiene almeno metà dei nomi di colonna della ricetta, e solo allora fa il confronto tollerante.
+- **Perché.** Con centinaia di ricette salvate la lettura deve restare immediata: un foglio di 300 righe con un archivio di 20.000 articoli e 200 ricette si legge in circa 40 millesimi di secondo.
+- **Che cosa devi fare.** Niente.
+
+#### Procedura di rilascio: la bozza segue l'ultimo codice
+
+- **Che cosa cambia.** Quando la procedura «Rilascio» aggiorna una bozza già esistente, aggiorna anche il commit a cui la bozza punta.
+- **Perché.** Prima i file erano nuovi, ma alla pubblicazione l'etichetta della versione sarebbe nata sul commit della prima bozza.
+- **Che cosa devi fare.** Niente: riguarda solo chi pubblica le versioni.
 
 ## [1.0.0] - 2026-11-27
 
