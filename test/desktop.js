@@ -86,9 +86,18 @@ const { CHIAVE_FINTA, simulaAnthropicDesktop, chiamateDesktop } = require('./sim
     const cifrata = fs.existsSync(fileChiave);
     if (cifrata) assert.ok(!fs.readFileSync(fileChiave).includes(CHIAVE_FINTA), 'su disco la chiave deve essere cifrata');
     assert.match(await page.textContent('#aiStatus'), cifrata ? /cifrata dal sistema/ : /non offre un portachiavi/);
-    for (const f of fs.readdirSync(dati, { recursive: true, withFileTypes: true }))
-      if (f.isFile() && fs.statSync(path.join(f.parentPath, f.name)).size < 5e6)
-        assert.ok(!fs.readFileSync(path.join(f.parentPath, f.name)).includes(CHIAVE_FINTA), 'chiave in chiaro in ' + f.name);
+    /* nessun file della cartella dati contiene la chiave in chiaro; su Windows alcuni file sono tenuti bloccati dall'app mentre è aperta: quelli si ricontrollano dopo la chiusura */
+    const senzaChiave = () => {
+      const bloccati = [];
+      for (const f of fs.readdirSync(dati, { recursive: true, withFileTypes: true })) {
+        if (!f.isFile()) continue;
+        const file = path.join(f.parentPath, f.name);
+        try { if (fs.statSync(file).size < 5e6) assert.ok(!fs.readFileSync(file).includes(CHIAVE_FINTA), 'chiave in chiaro in ' + f.name); }
+        catch (e) { if (e.code === 'EBUSY' || e.code === 'EPERM' || e.code === 'ENOENT') bloccati.push(f.name); else throw e; }
+      }
+      return bloccati;
+    };
+    senzaChiave();
     const modelli = await page.locator('#ai-model option').allTextContents();
     assert.deepEqual(modelli, ['Claude Sonnet 5.5 (consigliato)', 'Claude Haiku 5.5 (più economico)']);
     await page.click('#setClose');
@@ -134,6 +143,7 @@ const { CHIAVE_FINTA, simulaAnthropicDesktop, chiamateDesktop } = require('./sim
     console.log('  ok  nessuna richiesta di rete e nessuna finestra partono dalla pagina');
 
     await app.close();
+    assert.deepEqual(senzaChiave().filter(n => !/^(lockfile|LOCK)$/.test(n)), [], 'ad app chiusa tutti i file della cartella dati si possono leggere, e nessuno contiene la chiave in chiaro');
     app = await avvia();
     page = await pronta(app);
     assert.match(await page.textContent('#archChipText'), /16 articoli, 7 clienti/);
