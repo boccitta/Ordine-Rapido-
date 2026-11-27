@@ -153,7 +153,8 @@ jobs:
           FILE=(dist/Ordine-Rapido.html dist/Ordine-Rapido-*.exe dist/Ordine-Rapido-*.AppImage dist/Ordine-Rapido-*.dmg dist/SHA256SUMS.txt)
           if gh release view "$ETICHETTA" > /dev/null 2>&1; then
             gh release upload "$ETICHETTA" "${FILE[@]}" --clobber
-            gh release edit "$ETICHETTA" --title "Ordine Rapido $VERSIONE" --notes-file note.md
+            # anche il commit di riferimento: l'etichetta, alla pubblicazione, deve puntare al codice da cui vengono questi file
+            gh release edit "$ETICHETTA" --target "$GITHUB_SHA" --title "Ordine Rapido $VERSIONE" --notes-file note.md
           else
             gh release create "$ETICHETTA" "${FILE[@]}" --draft --target "$GITHUB_SHA" --title "Ordine Rapido $VERSIONE" --notes-file note.md
           fi
