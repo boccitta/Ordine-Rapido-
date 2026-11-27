@@ -73,7 +73,7 @@ In **Settings → Code security** attiva **Private vulnerability reporting**: pe
 | Prima versione pubblica: 1.0.0 | `package.json` e `CHANGELOG.md`; vedi [RILASCI.md](RILASCI.md) |
 | Nome della repository: `ordine-rapido` | Al momento della creazione. I collegamenti interni sono relativi e funzionano con qualunque nome |
 | Identificativo dell'app desktop: `it.ordinerapido.app` | `build.appId` in `package.json`. Va deciso **prima** del primo rilascio: cambiarlo dopo fa perdere gli archivi a chi ha già installato l'app |
-| Modello proposto per la lettura: Claude Sonnet 5.5 | Costante `MODELS` in `app/app.js` |
+| Modello proposto per la lettura: Claude Sonnet 5.5 | Costante `MODELS` in `src/anthropic/protocollo.ts` |
 
 ## Dopo la pubblicazione
 

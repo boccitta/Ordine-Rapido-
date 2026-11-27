@@ -20,10 +20,10 @@
     {
       "file": "xlsx.full.min.js",
       "pacchetto": "xlsx (SheetJS Community Edition)",
-      "versione": "0.18.5",
-      "origine": "npm: xlsx@0.18.5, dist/xlsx.full.min.js",
+      "versione": "0.20.3",
+      "origine": "sito del produttore (cdn.sheetjs.com): xlsx-0.20.3.tgz, dist/xlsx.full.min.js",
       "licenza": "Apache-2.0",
-      "sha256": "c9506197caf809a075b6dee1da0d36fb19da7158ffe8a88e7b0c96c5d8623c99"
+      "sha256": "cc015130aa8521e7f088f88898eba949ccdcbfb38df0bd129b44b7273c3a6f41"
     },
     {
       "file": "fonts/figtree-latin-wght-normal.woff2",

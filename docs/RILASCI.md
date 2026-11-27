@@ -18,7 +18,7 @@ Casi dubbi:
 - Correggere un errore che qualcuno potrebbe aver compensato a mano, per esempio un arrotondamento, è una CORREZIONE ma va descritta con il prima e il dopo.
 - I formati di riferimento sono in [FORMATI.md](FORMATI.md): se lo modifichi in modo incompatibile, è MAGGIORE.
 
-Il numero sta in un solo posto: il campo `version` di `package.json`. Da lì lo prendono l'app (attraverso `app/versione.js`), i pacchetti e il rilascio.
+Il numero sta in un solo posto: il campo `version` di `package.json`. Da lì lo prendono l'app (la compilazione lo scrive dentro `app/app.js`), i pacchetti e il rilascio.
 
 ## Il registro delle modifiche
 
@@ -55,7 +55,7 @@ Regole:
 4. Esegui:
 
    ```bash
-   npm run versione     # scrive la versione nell'app e controlla che il registro abbia la sezione
+   npm run versione     # controlla che il registro abbia la sezione della versione di package.json
    npm test             # prove e controllo dei dati
    ```
 

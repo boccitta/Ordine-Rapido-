@@ -2,6 +2,8 @@
  * Costruisce la versione portatile: tutta l'app in un solo file HTML, da aprire con un doppio clic.
  * Stile, codice, caratteri e librerie per PDF ed Excel finiscono dentro il file: non serve nient'altro.
  *
+ * Parte dal codice già compilato (app/app.js): prima va eseguito scripts/compila.js. «npm run costruisci» fa entrambe le cose.
+ *
  * Uso:  node scripts/costruisci.js      scrive dist/Ordine-Rapido.html
  */
 'use strict';
@@ -30,10 +32,9 @@ function costruisci() {
   if (/url\(vendor\//.test(css)) throw new Error('style.css: è rimasto un riferimento a vendor/');
   html = unaVolta(html, '<link rel="stylesheet" href="style.css">', '<style>\n' + css + '</style>');
 
-  /* codice dell'app */
-  ['versione.js', 'core.js', 'app.js'].forEach(file => {
-    html = unaVolta(html, '<script src="' + file + '"></script>', '<script>\n' + sicuro(leggi(file)) + '</script>');
-  });
+  /* codice dell'app: il file generato da scripts/compila.js */
+  if (!fs.existsSync(path.join(APP, 'app.js'))) throw new Error('manca app/app.js: esegui prima "npm run compila"');
+  html = unaVolta(html, '<script src="app.js"></script>', '<script>\n' + sicuro(leggi('app.js')) + '</script>');
 
   /* librerie: in base64, lette dall'app solo quando servono (vedi vendorUrl in app.js) */
   const blocchi = VENDOR.map(file =>

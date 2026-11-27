@@ -9,7 +9,7 @@ Si trovano in `app/vendor/`, copiati senza modifiche. Versione, origine e impron
 | Componente | Versione | A cosa serve | Licenza | Testo della licenza |
 |---|---|---|---|---|
 | [PDF.js](https://github.com/mozilla/pdf.js) (pdfjs-dist), Mozilla Foundation | 3.11.174 | Leggere i file PDF | Apache License 2.0 | [`pdfjs-LICENSE.txt`](app/vendor/licenze/pdfjs-LICENSE.txt) |
-| SheetJS Community Edition (xlsx), SheetJS LLC | 0.18.5 | Leggere i file Excel | Apache License 2.0 | [`sheetjs-LICENSE.txt`](app/vendor/licenze/sheetjs-LICENSE.txt) |
+| SheetJS Community Edition (xlsx), SheetJS LLC | 0.20.3 | Leggere i file Excel | Apache License 2.0 | [`sheetjs-LICENSE.txt`](app/vendor/licenze/sheetjs-LICENSE.txt) |
 | [Figtree](https://github.com/erikdkennedy/figtree), The Figtree Project Authors | 5.3.0 (pacchetto Fontsource) | Carattere dei testi | SIL Open Font License 1.1 | [`figtree-OFL.txt`](app/vendor/licenze/figtree-OFL.txt) |
 | [Montserrat](https://github.com/JulietaUla/Montserrat), The Montserrat Project Authors | 5.3.0 (pacchetto Fontsource) | Carattere dei titoli | SIL Open Font License 1.1 | [`montserrat-OFL.txt`](app/vendor/licenze/montserrat-OFL.txt) |
 

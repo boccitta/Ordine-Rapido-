@@ -37,6 +37,9 @@ dati/
 # Strumenti di sviluppo e file generati
 node_modules/
 dist/
+# Codice compilato da "npm run compila" a partire da src/: non si modifica a mano
+app/app.js
+desktop/
 *.log
 .DS_Store
 Thumbs.db

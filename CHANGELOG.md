@@ -12,7 +12,45 @@ Come si scrive una voce e come si pubblica una versione: [docs/RILASCI.md](docs/
 
 ## [Non rilasciato]
 
-Nessuna modifica in attesa.
+La versione 1.0.0 non è ancora stata pubblicata: al momento del rilascio queste voci possono confluire nella 1.0.0 oppure diventare la versione successiva (vedi [docs/RILASCI.md](docs/RILASCI.md)).
+
+### Modificato
+
+#### Il codice è scritto in TypeScript e diviso in moduli
+
+- **Che cosa cambia.** Il codice dell'app non è più in due file JavaScript scritti a mano (`app/core.js` e `app/app.js`, quest'ultimo di quasi 1.300 righe) ma in TypeScript nella cartella `src/`, diviso per compito: logica (`src/core/`), colloquio con Anthropic (`src/anthropic/`), ambienti (`src/piattaforma/`), interfaccia (`src/ui/`), app desktop (`src/desktop/`). Uno script (`npm run compila`) produce i file che l'app esegue. Per chi usa l'app non cambia nulla di visibile: schermate, file esportato e formato della copia di sicurezza sono gli stessi.
+- **Perché.** In un file unico senza controlli gli errori si scoprono solo usando l'app. Con TypeScript vengono trovati prima dell'avvio, e la divisione in moduli impedisce per costruzione alcune confusioni: la logica non può toccare la pagina, la pagina non può usare Electron. Una prova lo fa rispettare.
+- **Che cosa devi fare.** Niente se usi l'app. Se la modifichi: serve Node.js 22.18 o successivo, e prima di aprire `app/index.html` va eseguito `npm run compila`. La nuova organizzazione è descritta in [docs/SVILUPPO.md](docs/SVILUPPO.md).
+
+#### App desktop: gli archivi sono file nella cartella dati dell'app
+
+- **Che cosa cambia.** Nell'app desktop articoli, clienti, mandanti e abbinamenti imparati non stanno più nel database interno della finestra ma in file JSON nella cartella dati dell'app (`archivi/`). Ogni salvataggio scrive un file provvisorio che solo alla fine prende il posto di quello valido.
+- **Perché.** File veri sono più facili da ritrovare e da includere nelle copie del computer, e un'interruzione a metà salvataggio non rovina l'archivio già presente.
+- **Che cosa devi fare.** Niente: al primo avvio gli archivi salvati da una versione precedente vengono letti e riscritti nel posto nuovo. La versione portatile `Ordine-Rapido.html` continua a salvarli nel browser.
+
+### Sicurezza
+
+#### App desktop: la chiave API è custodita fuori dalla finestra e cifrata
+
+- **Che cosa cambia.** Nell'app desktop la chiave API non è più salvata in chiaro tra i dati della finestra. La custodisce il processo principale: la finestra la consegna una volta e non può più rileggerla (nelle impostazioni compaiono solo gli ultimi caratteri). Se scegli di ricordarla viene scritta su disco cifrata dal sistema operativo; su un Linux senza portachiavi non viene scritta e va inserita a ogni avvio.
+- **Perché.** Una chiave in chiaro tra i dati di una pagina può essere letta da chiunque apra quei file, e da qualunque codice riesca a girare nella pagina. Tenerla nel processo principale toglie entrambe le possibilità.
+- **Che cosa devi fare.** Niente: una chiave salvata da una versione precedente viene spostata da sola al primo avvio e tolta dal posto vecchio. Nella versione portatile `Ordine-Rapido.html` la chiave resta in chiaro tra i dati del browser, perché un browser non offre un posto protetto: vedi [SECURITY.md](SECURITY.md).
+
+#### App desktop: dalla finestra non parte più nessuna richiesta di rete
+
+- **Che cosa cambia.** È il processo principale, non la finestra, a parlare con Anthropic, da una sessione di rete dedicata che raggiunge solo `api.anthropic.com`. Dalla finestra è bloccata ogni richiesta, compresa quella verso Anthropic.
+- **Perché.** Così un documento costruito apposta, anche se riuscisse a far eseguire codice nella pagina, non avrebbe né la chiave né un modo per spedire dati.
+- **Che cosa devi fare.** Niente.
+
+#### Libreria per i file Excel aggiornata
+
+- **Che cosa cambia.** La libreria che legge i file Excel (SheetJS) passa dalla versione 0.18.5 alla 0.20.3.
+- **Perché.** La versione precedente aveva due vulnerabilità note (CVE-2023-30533 e CVE-2024-22363), sfruttabili con un file Excel costruito apposta. La 0.20.3 le corregge.
+- **Che cosa devi fare.** Niente. Non serve più la cautela di aprire solo file Excel di provenienza nota per questo motivo; resta buona norma non aprire file inattesi.
+
+### Limiti noti
+
+- **Windows 11 con Smart App Control.** Su questi computer il sistema blocca i programmi non firmati, senza possibilità di proseguire: l'app desktop non parte finché i pacchetti non vengono firmati con un certificato di firma del codice. Resta utilizzabile la versione portatile `Ordine-Rapido.html`. Dettagli in [SECURITY.md](SECURITY.md).
 
 ## [1.0.0] - 2026-11-27
 

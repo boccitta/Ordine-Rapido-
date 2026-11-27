@@ -7,7 +7,8 @@
 ## Controlli
 
 - [ ] `npm test` passa (prove e controllo dei dati)
-- [ ] La logica nuova è in `app/core.js` e ha la sua prova
+- [ ] `npm run tipi` passa (controllo dei tipi)
+- [ ] La logica nuova è in `src/core/` e ha la sua prova
 - [ ] `CHANGELOG.md` ha la voce sotto «Non rilasciato»: che cosa cambia, perché, che cosa devi fare
 - [ ] Se cambia un formato, `docs/FORMATI.md` è aggiornato
 - [ ] Nessun dato reale in codice, prove, immagini e in questa descrizione

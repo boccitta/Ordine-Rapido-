@@ -47,4 +47,35 @@ async function simulaAnthropic(bersaglio, chiamate) {
   });
 }
 
-module.exports = { CHIAVE_FINTA, ORDINE_LETTO, simulaAnthropic };
+/*
+ * Come sopra, per l'app desktop. Lì le richieste non partono dalla finestra ma dal processo principale, in una sessione
+ * di rete dedicata: si intercettano in quel punto, senza toccare il codice dell'app. Le richieste viste restano
+ * annotate nel processo principale e si leggono con chiamateDesktop().
+ */
+async function simulaAnthropicDesktop(app) {
+  await app.evaluate(({ session }, { chiave, ordine }) => {
+    globalThis.__chiamateAnthropic = [];
+    const json = (status, corpo) => new Response(JSON.stringify(corpo), { status, headers: { 'content-type': 'application/json' } });
+    session.fromPartition('ordine-rapido-anthropic').protocol.handle('https', async richiesta => {
+      const url = new URL(richiesta.url), h = Object.fromEntries(richiesta.headers);
+      const corpo = richiesta.method === 'POST' ? await richiesta.json() : null;
+      globalThis.__chiamateAnthropic.push({ host: url.host, path: url.pathname, method: richiesta.method, headers: h, body: corpo });
+      if (url.host !== 'api.anthropic.com') return json(404, {});
+      if (h.authorization !== 'Bearer ' + chiave) return json(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } });
+      if (url.pathname === '/v1/models')
+        return json(200, { data: [
+          { type: 'model', id: 'claude-sonnet-5-5', display_name: 'Claude Sonnet 5.5', lifecycle: 'active' },
+          { type: 'model', id: 'claude-haiku-5-5', display_name: 'Claude Haiku 5.5', lifecycle: 'active' },
+          { type: 'model', id: 'claude-vecchio-1', display_name: 'Claude Vecchio', lifecycle: 'deprecated' }], has_more: false });
+      if (url.pathname === '/v1/messages') {
+        const testo = corpo.messages[0].content.find(b => b.type === 'text').text;
+        const risposta = /^Abbina ogni riga/.test(testo) ? '[{"riga":1,"cod":"300403"}]' : 'Ecco la trascrizione:\n```json\n' + JSON.stringify(ordine) + '\n```';
+        return json(200, { type: 'message', role: 'assistant', stop_reason: 'end_turn', content: [{ type: 'text', text: risposta }] });
+      }
+      return json(404, {});
+    });
+  }, { chiave: CHIAVE_FINTA, ordine: ORDINE_LETTO });
+}
+const chiamateDesktop = app => app.evaluate(() => globalThis.__chiamateAnthropic || []);
+
+module.exports = { CHIAVE_FINTA, ORDINE_LETTO, simulaAnthropic, simulaAnthropicDesktop, chiamateDesktop };

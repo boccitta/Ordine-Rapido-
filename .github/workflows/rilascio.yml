@@ -40,11 +40,18 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
+          cache: npm
       - name: Prove automatiche e controllo dei dati
         run: npm test
-      - name: Versione, app e registro delle modifiche allineati
-        run: node scripts/versione.js --controlla
+      - name: Versione e registro delle modifiche allineati
+        run: node scripts/versione.js
+      - name: Controllo dei tipi, compilazione e prove sul codice compilato
+        run: |
+          npm ci
+          npm run tipi
+          npm run compila
+          npm run test:costruzione
       - name: Legge la versione
         id: versione
         run: echo "versione=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
@@ -81,13 +88,13 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - name: Installa gli strumenti
         run: npm ci
-      # Scrive nell'app la versione e l'indirizzo di questa repository (il collegamento "Codice sorgente").
-      - name: Versione e indirizzo del codice sorgente
-        run: node scripts/versione.js
+      # Compila src/ e scrive nell'app la versione e l'indirizzo di questa repository (il collegamento "Codice sorgente").
+      - name: Compila il codice
+        run: npm run compila
       - name: Costruisce il pacchetto
         run: npx electron-builder --publish never
       - name: Avvia il pacchetto e lo prova
@@ -121,10 +128,11 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
+          cache: npm
       - name: Versione portatile in un solo file
         run: |
-          node scripts/versione.js
+          npm ci
           npm run costruisci
       - uses: actions/download-artifact@v8
         with:

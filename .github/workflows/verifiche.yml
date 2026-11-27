@@ -21,28 +21,38 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
-      # Non servono dipendenze: le prove usano solo Node.
-      # Comprende: logica dell'app, versione allineata, librerie intatte, nessun dato reale, file unico costruibile.
+          node-version: 24
+      # Non servono dipendenze: Node legge direttamente i file TypeScript della cartella src/.
+      # Comprende: logica dell'app, versione allineata, librerie intatte, nessun dato reale, struttura del codice rispettata.
       - name: Prove automatiche
         run: npm test
 
   uso-reale:
-    name: Prova nel browser e come app desktop
+    name: Tipi, compilazione, prova nel browser e come app desktop
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - name: Installa gli strumenti
         run: |
           npm ci
+          node node_modules/electron/install.js
           npm install --no-save "playwright@$PLAYWRIGHT"
           npx playwright install --with-deps chromium
+      - name: Controllo dei tipi
+        run: npm run tipi
+      # Compila src/ e prova il risultato; il processo principale dell'app desktop viene provato con un Electron simulato.
+      - name: Compilazione e prove sul codice compilato
+        run: |
+          npm run compila
+          npm run test:costruzione
       - name: Prova l'app aperta da file nel browser
         run: node test/e2e.js
+      - name: Prova l'interfaccia in modalità desktop, con il ponte simulato
+        run: node test/ponte.js
       - name: Prova la versione in un solo file
         run: |
           npm run costruisci

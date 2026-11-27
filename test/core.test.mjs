@@ -1,11 +1,11 @@
 /*
- * Prove della logica dell'app (app/core.js). Si eseguono con: npm test
+ * Prove della logica dell'app (src/core/). Si eseguono con: npm test
+ * Node legge direttamente i file TypeScript: non serve compilare né installare nulla.
  * Usano solo dati di fantasia.
  */
-'use strict';
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const Core = require('../app/core.js');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as Core from '../src/core/indice.ts';
 
 const ARTICOLI = [
   { cod: '300101', desc: 'PASSATA DI POMODORO BOTTIGLIA GR 700', ean: '2000003001019', um: 'PZ', mand: 'CONSERVE FANTASIA S.P.A.', prezzo: '0,85' },

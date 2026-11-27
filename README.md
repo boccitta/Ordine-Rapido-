@@ -216,23 +216,29 @@ Regole e procedura completa: [docs/RILASCI.md](docs/RILASCI.md).
 
 ## Per chi sviluppa
 
-L'app è HTML, CSS e JavaScript senza framework e senza fase di compilazione: per provarla basta aprire `app/index.html`.
+Il codice è scritto in TypeScript, senza framework, e diviso in moduli; uno script lo compila nei file che l'app esegue. Per provarla: `npm ci`, `npm run compila`, poi apri `app/index.html`.
 
 ```text
-app/         l'app: index.html, style.css, core.js (logica), app.js (interfaccia), vendor/ (librerie e caratteri inclusi)
-desktop/     la finestra dell'app desktop (Electron)
-esempi/      dati di fantasia per provare
-scripts/     versione, file unico, controllo dei dati
-test/        prove automatiche
-docs/        formati, rilasci, sviluppo, pubblicazione
+src/core/         logica pura: calcoli, controlli, abbinamento con l'archivio, tracciato, copia di sicurezza
+src/anthropic/    come si compone la richiesta ad Anthropic e come si legge la risposta
+src/piattaforma/  i tre ambienti (browser, app desktop, dentro Claude) dietro un unico contratto
+src/ui/           interfaccia: schermate, righe, archivio, lettura, esportazione, impostazioni
+src/desktop/      app desktop (Electron): processo principale, ponte con la finestra, chiave cifrata, archivi su file
+app/              la pagina: index.html, style.css, vendor/ (librerie e caratteri inclusi); app.js è generato
+esempi/           dati di fantasia per provare
+scripts/          compilazione, file unico, versione, controllo dei dati
+test/             prove automatiche
+docs/             formati, rilasci, sviluppo, pubblicazione
 ```
 
 ```bash
-npm test                 # logica, versione, librerie, controllo dei dati: non richiede installazioni
-npm ci                   # installa Electron ed electron-builder
-npm start                # avvia l'app desktop
-npm run costruisci       # crea dist/Ordine-Rapido.html
-npm run pacchetti        # crea il pacchetto per il sistema su cui ti trovi
+npm test                 # logica, struttura, versione, librerie, controllo dei dati: non richiede installazioni
+npm ci                   # installa TypeScript, esbuild, Electron ed electron-builder
+npm run tipi             # controllo dei tipi
+npm run compila          # crea app/app.js e i file dell'app desktop
+npm start                # compila e avvia l'app desktop
+npm run costruisci       # compila e crea dist/Ordine-Rapido.html
+npm run pacchetti        # compila e crea il pacchetto per il sistema su cui ti trovi
 ```
 
 Dettagli, prove nel browser e aggiornamento delle librerie: [docs/SVILUPPO.md](docs/SVILUPPO.md). Come proporre modifiche: [CONTRIBUTING.md](CONTRIBUTING.md). Come segnalare un problema di sicurezza: [SECURITY.md](SECURITY.md).
