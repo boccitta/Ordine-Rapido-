@@ -100,6 +100,8 @@ const { CHIAVE_FINTA, simulaAnthropicDesktop, chiamateDesktop } = require('./sim
     senzaChiave();
     const modelli = await page.locator('#ai-model option').allTextContents();
     assert.deepEqual(modelli, ['Claude Sonnet 5.5 (consigliato)', 'Claude Haiku 5.5 (più economico)']);
+    /* qui si prova la lettura con il servizio: in automatico il PDF lo leggerebbe già il dispositivo */
+    await page.selectOption('#ai-mode', 'ai');
     await page.click('#setClose');
     console.log('  ok  chiave API verificata dal processo principale, ' + (cifrata ? 'salvata cifrata' : 'non scritta su disco perché manca un portachiavi') + ', mai in chiaro');
 
@@ -133,6 +135,25 @@ const { CHIAVE_FINTA, simulaAnthropicDesktop, chiamateDesktop } = require('./sim
     assert.equal(righe.length, 6);
     assert.ok(righe[1].startsWith('300101;PASSATA DI POMODORO BOTTIGLIA GR 700;PZ;120;10;0,85;5;'));
     console.log('  ok  CSV salvato su disco con i codici dell\'archivio');
+
+    /* una foto letta sul dispositivo, nell'app vera: il riconoscimento dei caratteri gira in un processo separato, senza rete */
+    await page.click('#btnSet'); await page.selectOption('#ai-mode', 'local'); await page.click('#setClose');
+    await page.click('#btnNew');
+    const png = await page.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 1400; c.height = 640;
+      const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.fillStyle = '#111'; x.font = '30px sans-serif';
+      x.fillText('BUONO D\'ORDINE N. 0412 del 23/11/2026', 60, 80); x.fillText('Fornitore: CONSERVE FANTASIA S.P.A.', 60, 140);
+      const righe = [['Codice', 'Descrizione', 'Colli', 'Prezzo unit.'], ['300101', 'PASSATA DI POMODORO BOTTIGLIA GR 700', '4', '0,85'], ['300102', 'POLPA DI POMODORO LATTA GR 400', '6', '0,55']];
+      righe.forEach((r, i) => r.forEach((s, k) => x.fillText(s, [60, 260, 920, 1120][k], 240 + i * 80)));
+      return c.toDataURL('image/png').split(',')[1];
+    });
+    await page.setInputFiles('#fileInput', { name: 'buono-fotografato.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+    await page.click('#btnRead');
+    await page.waitForSelector('#v2:not([hidden])', { timeout: 240000 });
+    assert.deepEqual(await page.$$eval('#tbody tr', trs => trs.map(tr => [tr.querySelector('.c-cod_articolo input').value, tr.querySelector('.c-colli input').value])), [['300101', '4'], ['300102', '6']]);
+    assert.match(await page.textContent('#notes'), /Letto da una foto/);
+    await page.click('#rail3'); await page.click('#btnNew');
+    console.log('  ok  foto letta sul dispositivo: il riconoscimento dei caratteri viaggia con l\'app e funziona');
 
     /* dalla finestra non esce nulla: né una richiesta di rete, nemmeno verso Anthropic, né una nuova finestra */
     const bloccate = await page.evaluate(() => Promise.all(['https://example.com/', 'https://api.anthropic.com/v1/models']

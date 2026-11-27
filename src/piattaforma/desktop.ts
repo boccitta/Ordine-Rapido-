@@ -8,14 +8,14 @@
  * Software libero distribuito con licenza GNU General Public License versione 3 (GPL-3.0-only),
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
-import { MAX_IMAGES, keyLooksValid } from '../anthropic/protocollo.ts';
 import { KINDS, archiveDate, emptyArchive } from '../core/anagrafiche.ts';
 import { AppError } from '../core/tipi.ts';
 import type { Archive } from '../core/tipi.ts';
 import { BRIDGE } from '../desktop/contratto.ts';
-import type { DesktopBridge, KeyState, Reply } from '../desktop/contratto.ts';
-import { aliasFrom, aliasRows, browserStore, downloadSaver, encodeImages, loadAiSaved, packAll, storeAiSaved, unpackInto } from './browser.ts';
-import type { AiAccess, AiState, ArchiveStore, KeyOutcome, Platform, Progress, Reader, ReadOptions, StoreMode } from './tipi.ts';
+import type { DesktopBridge, KeyState, KeyStates, Reply } from '../desktop/contratto.ts';
+import { MAX_IMAGES, PROVIDER_IDS, keyLooksValid, pickModel } from '../ia/indice.ts';
+import { aiState, aliasFrom, aliasRows, browserStore, downloadSaver, encodeImages, loadAiSaved, packAll, storeAiSaved, unpackInto } from './browser.ts';
+import type { AiAccess, ArchiveStore, KeyOutcome, Platform, Progress, Reader, ReadOptions, StoreMode } from './tipi.ts';
 
 export function desktopBridge(): DesktopBridge | null {
   const b = (globalThis as Record<string, unknown>)[BRIDGE] as DesktopBridge | undefined;
@@ -72,25 +72,31 @@ function outcome(state: KeyState, remember: boolean): KeyOutcome {
   if (!remember) return 'session';
   return state.stored ? 'encrypted' : state.canEncrypt ? 'unsaved' : 'no_keyring';
 }
+function noKeys(): KeyStates {
+  const out = {} as KeyStates;
+  for (const id of PROVIDER_IDS) out[id] = { present: false, hint: '', stored: false, canEncrypt: true };
+  return out;
+}
 
-/** Lettura automatica: la pagina prepara la richiesta, il processo principale aggiunge la chiave e la spedisce. */
+/** Lettura con un servizio: la pagina prepara la richiesta, il processo principale aggiunge la chiave e la spedisce. */
 function desktopAi(bridge: DesktopBridge): { ai: AiAccess; ready: Promise<void> } {
-  /* Modello scelto ed elenco dei modelli non sono segreti: restano tra le preferenze della finestra. La chiave no. */
+  /* Servizio e modelli scelti non sono segreti: restano tra le preferenze della finestra. Le chiavi no. */
   const saved = loadAiSaved();
-  let key: KeyState = { present: false, hint: '', stored: false, canEncrypt: true };
+  let keys: KeyStates = noKeys();
   let counter = 0;
 
   const ready = (async () => {
     try {
-      /* Una versione precedente salvava la chiave tra le preferenze della finestra: si sposta nel processo principale. */
-      if (saved.key && keyLooksValid(saved.key)) {
-        const moved = saved.key;
-        saved.key = '';
+      /* Una versione precedente salvava le chiavi tra le preferenze della finestra: si spostano nel processo principale. */
+      for (const id of PROVIDER_IDS) {
+        const moved = saved.p[id].key;
+        if (!moved) continue;
+        saved.p[id].key = '';
         storeAiSaved(saved, false);
-        try { key = unwrap(await bridge.key.verify(moved, saved.remember)).state; return; } catch { /* non più valida: si chiederà di nuovo */ }
+        if (keyLooksValid(moved)) { try { keys = unwrap(await bridge.key.verify(id, moved, saved.remember)).state; } catch { /* non più valida: si chiederà di nuovo */ } }
       }
-      key = unwrap(await bridge.key.state());
-    } catch { /* ponte non disponibile: la lettura automatica resta spenta */ }
+      keys = unwrap(await bridge.key.state());
+    } catch { /* ponte non disponibile: la lettura con i servizi resta spenta */ }
   })();
 
   const reader: Reader = {
@@ -101,29 +107,32 @@ function desktopAi(bridge: DesktopBridge): { ai: AiAccess; ready: Promise<void> 
       if (signal && signal.aborted) throw new AppError('cancelled');
       const stop = () => bridge.read.stop(id);
       if (signal) signal.addEventListener('abort', stop, { once: true });
-      try { return unwrap(await bridge.read.ask(id, saved.model, prompt, images)); }
+      try { return unwrap(await bridge.read.ask(id, saved.provider, saved.p[saved.provider].model, prompt, images)); }
       finally { if (signal) signal.removeEventListener('abort', stop); }
     }
   };
   const ai: AiAccess = {
     needsKey: true,
-    state: (): AiState => ({ hasKey: key.present, keyText: '', keyHint: key.hint, remember: saved.remember, model: saved.model, models: saved.models.slice() }),
-    reader: () => (key.present ? reader : null),
-    async verify(text, remember, model): Promise<KeyOutcome> {
+    available: PROVIDER_IDS,
+    state: () => aiState(saved, id => ({ has: keys[id].present, text: '', hint: keys[id].hint })),
+    reader: () => (keys[saved.provider].present ? reader : null),
+    async verify(id, text, remember): Promise<KeyOutcome> {
       if (text && !keyLooksValid(text)) throw new AppError('bad_key_format');
-      const r = unwrap(await bridge.key.verify(text, remember));
-      key = r.state; saved.remember = remember; saved.model = model || saved.model; saved.models = r.models;
+      const r = unwrap(await bridge.key.verify(id, text, remember));
+      keys = r.state; saved.remember = remember;
+      saved.p[id].models = r.models; saved.p[id].model = pickModel(id, saved.p[id].model, r.models);
       storeAiSaved(saved, false);
-      return outcome(key, remember);
+      return outcome(keys[id], remember);
     },
-    async forget() {
-      key = unwrap(await bridge.key.forget());
-      saved.models = []; storeAiSaved(saved, false);
+    async forget(id) {
+      keys = unwrap(await bridge.key.forget(id));
+      saved.p[id].models = []; storeAiSaved(saved, false);
     },
-    setModel(model) { saved.model = model; storeAiSaved(saved, false); },
+    setProvider(id) { saved.provider = id; storeAiSaved(saved, false); },
+    setModel(id, model) { saved.p[id].model = model; storeAiSaved(saved, false); },
     async setRemember(remember) {
       saved.remember = remember; storeAiSaved(saved, false);
-      key = unwrap(await bridge.key.remember(remember));
+      keys = unwrap(await bridge.key.remember(remember));
     }
   };
   return { ai, ready };

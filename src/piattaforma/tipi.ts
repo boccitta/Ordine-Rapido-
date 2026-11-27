@@ -8,7 +8,7 @@
  * Software libero distribuito con licenza GNU General Public License versione 3 (GPL-3.0-only),
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
-import type { Model } from '../anthropic/protocollo.ts';
+import type { Model, ProviderId } from '../ia/indice.ts';
 import type { Archive, Kind } from '../core/tipi.ts';
 
 /** Dove sono salvati gli archivi: file dell'app, spazio privato in Claude, database del browser, memoria locale, solo memoria. */
@@ -41,28 +41,37 @@ export type KeyOutcome =
   | 'unsaved'       /* qui non si può salvare */
   | 'no_keyring';   /* il sistema non offre un portachiavi: non viene scritta in chiaro */
 
-export interface AiState {
+/** Chiave e modelli di un servizio. */
+export interface ProviderState {
   hasKey: boolean;
   /** La chiave da rimostrare nel campo. Nell'app desktop è sempre vuota: la pagina non la rivede più. */
   keyText: string;
   /** Gli ultimi caratteri della chiave salvata, per riconoscerla. */
   keyHint: string;
-  remember: boolean;
   model: string;
   models: Model[];
 }
+export interface AiState {
+  /** Il servizio scelto per leggere gli ordini. */
+  provider: ProviderId;
+  remember: boolean;
+  providers: Record<ProviderId, ProviderState>;
+}
 
-/** La lettura automatica: chi la fa e, quando serve, la chiave API di chi usa l'app. */
+/** La lettura con un servizio di intelligenza artificiale: quale, con quale modello e, quando serve, con quale chiave. */
 export interface AiAccess {
   /** false dentro Claude, dove la lettura non ha bisogno di una chiave. */
   readonly needsKey: boolean;
+  /** I servizi che si possono usare qui: tutti nel browser e nell'app desktop, solo Claude dentro Claude. */
+  readonly available: readonly ProviderId[];
   state(): AiState;
-  /** Il lettore da usare adesso; null se manca la chiave o la lettura non è disponibile. */
+  /** Il lettore del servizio scelto; null se manca la chiave o la lettura non è disponibile. */
   reader(): Reader | null;
   /** Prova la chiave leggendo l'elenco dei modelli; se è valida la tiene. Con chiave vuota riprova quella già salvata. */
-  verify(key: string, remember: boolean, model: string): Promise<KeyOutcome>;
-  forget(): Promise<void>;
-  setModel(model: string): void;
+  verify(provider: ProviderId, key: string, remember: boolean): Promise<KeyOutcome>;
+  forget(provider: ProviderId): Promise<void>;
+  setProvider(provider: ProviderId): void;
+  setModel(provider: ProviderId, model: string): void;
   setRemember(remember: boolean): Promise<void>;
 }
 

@@ -8,10 +8,11 @@
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
 import { companyKey, digits, keyMatch, normCode, normText, noZeros, tokens } from './anagrafiche.ts';
+import { distance, ratio } from './simile.ts';
 import type { Article, Index, Link, Order, Party, Row, Via } from './tipi.ts';
 
 export function buildIndex(arts: Article[]): Index {
-  const ix: Index = { arts, code: Object.create(null), codeNz: Object.create(null), ean: Object.create(null), mk: [], tok: null };
+  const ix: Index = { arts, code: Object.create(null), codeNz: Object.create(null), ean: Object.create(null), mk: [], tok: null, voc: null };
   const add = (map: Record<string, number[]>, key: string, i: number) => { (map[key] = map[key] || []).push(i); };
   arts.forEach((a, i) => {
     const c = normCode(a.cod), e = digits(a.ean);
@@ -42,7 +43,13 @@ const STOP: Readonly<Record<string, 1>> = { DI: 1, DA: 1, DEL: 1, DELLA: 1, DELL
  * così «panetti» trova «panetto» e «80x3» trova «80 X 3».
  */
 export function words(s: unknown): string[] {
-  return tokens(String(s ?? '').replace(/(\d)\s*[xX×]\s*(?=\d)/g, '$1 X '))
+  const text = String(s ?? '');
+  /* «all'uovo» vale anche come «alluovo», come lo scrive chi va di fretta */
+  const elided = (text.match(/[A-Za-zÀ-ÿ]+['’][A-Za-zÀ-ÿ]+/g) || []).map(w => w.replace(/['’]/g, ''));
+  return tokens((text + ' ' + elided.join(' '))
+    .replace(/(\d)\s*[xX×]\s*(?=\d)/g, '$1 X ')
+    /* «500g», «1kg», «200ml»: il numero da una parte, l'unità dall'altra */
+    .replace(/(\d)([A-Za-z]{1,3})\b/g, '$1 $2'))
     .filter(t => !Object.prototype.hasOwnProperty.call(STOP, t))
     .map(t => (t.length >= 4 && /[AEIOU]$/.test(t) && !/\d/.test(t) ? t.slice(0, -1) : t));
 }
@@ -77,6 +84,18 @@ export function matchRow(ix: Index | null, row: Row, order: Order, alias?: Recor
       const cod = alias[keys[k] || ''];
       if (cod) { list = lookup(ix, ix.code, normCode(cod), mk); via = 'storico'; }
     }
+    /*
+     * La stessa descrizione dello stesso cliente, scritta con qualche lettera diversa (succede con le foto):
+     * vale l'abbinamento già usato, se le due descrizioni sono quasi identiche.
+     */
+    const d = normText(row.descrizione);
+    if (!list && d.length >= 10) {
+      const pref = 'd|' + (digits(order.piva) || companyKey(order.cliente)) + '|';
+      let best = '', bestR = 0.9;
+      for (const k in alias) if (k.indexOf(pref) === 0) { const r = ratio(k.slice(pref.length), d); if (r > bestR) { bestR = r; best = k; } }
+      const cod = best ? alias[best] : '';
+      if (cod) { list = lookup(ix, ix.code, normCode(cod), mk); via = 'storico'; }
+    }
   }
   const first = list ? ix.arts[list[0] ?? -1] : undefined;
   if (!list || !first) return { cod: '', desc: '', um: '', mand: '', ok: false, via: '' };
@@ -90,15 +109,27 @@ export function matchRow(ix: Index | null, row: Row, order: Order, alias?: Recor
 export function search(ix: Index | null, query: string, mandante: string, n?: number): { art: Article; score: number }[] {
   if (!ix) return [];
   if (!ix.tok) ix.tok = ix.arts.map(a => words(a.desc));
-  const tok = ix.tok, q = words(query), qc = normCode(query), mk = companyKey(mandante);
-  const qs: Record<string, 1> = Object.create(null), out: { i: number; s: number }[] = [];
+  if (!ix.voc) { const v: Record<string, 1> = Object.create(null); for (const t of ix.tok) for (const w of t) v[w] = 1; ix.voc = v; }
+  const tok = ix.tok, voc = ix.voc, q = words(query), qc = normCode(query), mk = companyKey(mandante);
+  /* il peso di ogni parola cercata: 1 se è scritta come nell'archivio, meno se ci somiglia soltanto */
+  const qs: Record<string, number> = Object.create(null), out: { i: number; s: number }[] = [];
   let qn = 0;
   for (const t of q) if (!qs[t]) { qs[t] = 1; qn++; }
   if (!qn && qc.length < 2) return [];
+  /* una parola che nell'archivio non c'è (MALLOEDDUS) vale come quelle che le somigliano di più (MALLOREDDUS); i numeri no */
+  for (const t of Object.keys(qs)) {
+    if (voc[t] || t.length < 4 || /\d/.test(t)) continue;
+    const max = t.length >= 8 ? 2 : 1;
+    let found = 0;
+    for (const v in voc) {
+      if (Math.abs(v.length - t.length) > max || qs[v]) continue;
+      if (distance(v, t, max) <= max) { qs[v] = 0.8; if (++found >= 3) break; }
+    }
+  }
   ix.arts.forEach((art, i) => {
     const t = tok[i] || [], seen: Record<string, 1> = Object.create(null);
     let inter = 0;
-    for (const w of t) if (qs[w] && !seen[w]) { seen[w] = 1; inter++; }
+    for (const w of t) if (qs[w] && !seen[w]) { seen[w] = 1; inter += qs[w] as number; }
     let s = inter ? inter / Math.sqrt(qn * Math.max(1, t.length)) : 0;
     if (qc.length >= 3 && normCode(art.cod).indexOf(qc) >= 0) s += 1;
     if (s > 0 && mk && ix.mk[i] && !keyMatch(ix.mk[i] || '', mk)) s *= 0.3;

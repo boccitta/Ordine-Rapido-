@@ -8,6 +8,7 @@
  */
 import { emptyArchive } from '../core/anagrafiche.ts';
 import { defaultProfile } from '../core/tracciato.ts';
+import type { Source } from '../core/lettura/indice.ts';
 import type { Archive, Index, Order, Profile, Row } from '../core/tipi.ts';
 import type { Platform } from '../piattaforma/tipi.ts';
 
@@ -49,6 +50,13 @@ export interface AppState {
   src: string;
   stage: Stage;
   exported: boolean;
+  /**
+   * Le righe di testo dei documenti da cui è stato letto l'ordine in lavorazione. All'esportazione si confrontano con
+   * l'ordine finito per imparare la ricetta del cliente (vedi src/core/ricette.ts). Non si salvano: restano in memoria.
+   */
+  sources: Source[];
+  /** true se dall'ordine in lavorazione si è già imparato; torna false a ogni modifica. */
+  learned: boolean;
   /* Il materiale da leggere */
   files: File[];
   /** Indirizzi locali delle immagini del documento, per «Vedi il documento». */
@@ -67,7 +75,7 @@ export interface AppState {
   allCols: boolean;
   skinChoice: Skin;
   /** Chi legge gli ordini, se è stato scelto a mano; vuoto finché decide l'app (vedi readerMode). */
-  readerChoice: '' | 'local' | 'claude';
+  readerChoice: '' | ReaderMode;
   /** true se i passaggi «per cominciare» sono stati nascosti a mano. */
   setupHidden: boolean;
   /** Quante cose da verificare, e quante da sistemare, mostra la schermata «Controlla». */
@@ -78,7 +86,7 @@ export interface AppState {
 }
 
 export const S: AppState = {
-  order: exampleOrder(), isExample: true, notes: EX_NOTES.slice(), src: '', stage: 'none', exported: false,
+  order: exampleOrder(), isExample: true, notes: EX_NOTES.slice(), src: '', stage: 'none', exported: false, sources: [], learned: false,
   files: [], previews: [],
   profile: defaultProfile(), arch: emptyArchive(), ix: null, archReady: false, cliOk: false, manOk: false,
   view: 'carica', headEdit: false, allCols: false, skinChoice: '', readerChoice: '', setupHidden: false,
@@ -94,11 +102,19 @@ export function platform(): Platform {
 }
 
 /**
- * Chi legge gli ordini adesso. Se non è stato scelto a mano: Claude dove è già disponibile (dentro Claude, oppure
- * con una chiave salvata), altrimenti questo dispositivo, che non ha bisogno di niente.
+ * Chi legge gli ordini: solo questo dispositivo, sempre il servizio di intelligenza artificiale scelto,
+ * oppure «automatico»: il dispositivo, e il servizio solo quando la lettura del dispositivo è incompleta.
  */
-export function readerMode(): 'local' | 'claude' {
-  if (S.readerChoice) return S.readerChoice;
+export type ReaderMode = 'local' | 'auto' | 'ai';
+/** true se il servizio scelto si può usare adesso: dentro Claude sempre, altrove se c'è la sua chiave. */
+export function aiReady(): boolean {
   const ai = platform().ai;
-  return !ai.needsKey || ai.state().hasKey ? 'claude' : 'local';
+  if (!ai.needsKey) return true;
+  const st = ai.state();
+  return st.providers[st.provider].hasKey;
+}
+/** Chi legge gli ordini adesso. Se non è stato scelto a mano: automatico dove un servizio è pronto, altrimenti il dispositivo. */
+export function readerMode(): ReaderMode {
+  if (S.readerChoice) return S.readerChoice;
+  return aiReady() ? 'auto' : 'local';
 }

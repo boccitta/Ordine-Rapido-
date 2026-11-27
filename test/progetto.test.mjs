@@ -55,11 +55,11 @@ test('librerie e caratteri di terzi: presenti e identici a quelli dichiarati in 
   assert.deepEqual(presenti.sort(), elenco.map(v => v.file).sort(), 'ogni file in app/vendor deve essere registrato');
 });
 
-test('pagina: nessuna risorsa presa da internet, un solo indirizzo permesso', () => {
+test('pagina: nessuna risorsa presa da internet, solo gli indirizzi dei tre servizi di lettura', () => {
   const html = leggi('app/index.html'), css = leggi('app/style.css');
   const csp = /http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(html)[1];
   assert.match(csp, /default-src 'none'/);
-  assert.match(csp, /connect-src https:\/\/api\.anthropic\.com(;|$)/);
+  assert.match(csp, /connect-src https:\/\/api\.anthropic\.com https:\/\/generativelanguage\.googleapis\.com https:\/\/api\.openai\.com(;|$)/);
   assert.ok(!/<(script|link|img)[^>]+(src|href)="https?:/.test(html), 'la pagina non deve caricare nulla da altri siti');
   assert.ok(!/url\(\s*["']?https?:/.test(css), 'lo stile non deve caricare nulla da altri siti');
   /* app.js non è nella repository: lo genera «npm run compila» a partire da src/ui/avvio.ts */
@@ -68,10 +68,12 @@ test('pagina: nessuna risorsa presa da internet, un solo indirizzo permesso', ()
     assert.ok(fs.existsSync(path.join(ROOT, GENERATI[f] || 'app/' + f)), 'manca ' + (GENERATI[f] || 'app/' + f));
 });
 
-test('codice: in tutto il progetto è nominato un solo indirizzo di rete, quello di Anthropic', () => {
+test('codice: in tutto il progetto sono nominati solo gli indirizzi dei tre servizi di lettura', () => {
   const codice = sorgenti().map(leggi).join('\n');
   const indirizzi = [...new Set((codice.match(/https?:\/\/[^\s"'`)]+/g) || []).filter(u => !u.startsWith('http://www.w3.org/')))];
-  assert.deepEqual(indirizzi, ['https://api.anthropic.com'], 'il codice può nominare solo l\'indirizzo di Anthropic');
+  assert.deepEqual(indirizzi.sort(), ['https://api.anthropic.com', 'https://api.openai.com', 'https://generativelanguage.googleapis.com'], 'il codice può nominare solo gli indirizzi di Anthropic, OpenAI e Google');
+  /* e ogni indirizzo sta solo nel modulo del suo servizio */
+  for (const f of sorgenti()) for (const u of new Set(leggi(f).match(/https?:\/\/[^\s"'`)]+/g) || [])) if (!u.startsWith('http://www.w3.org/')) assert.ok(f.startsWith('src/ia/'), f + ' nomina ' + u);
 });
 
 test('struttura: la logica non tocca pagina, rete o disco; solo il processo principale usa Electron e il disco', () => {
@@ -80,8 +82,10 @@ test('struttura: la logica non tocca pagina, rete o disco; solo il processo prin
     for (const m of importati(f)) assert.ok(m.startsWith('src/core/'), f + ' importa ' + m + ': la logica pura non dipende dal resto dell\'app');
     assert.ok(!/\b(document|window|localStorage|indexedDB|fetch|navigator)\b\s*[.(]/.test(testo), f + ' non deve usare la pagina, la rete o la memoria del browser');
   }
-  for (const f of sorgenti('anthropic'))
-    for (const m of importati(f)) assert.ok(m.startsWith('src/core/') || m.startsWith('src/anthropic/'), f + ' importa ' + m + ': il colloquio con Anthropic non dipende da pagina o desktop');
+  for (const f of sorgenti('ia')) {
+    for (const m of importati(f)) assert.ok(m.startsWith('src/core/') || m.startsWith('src/ia/'), f + ' importa ' + m + ': il colloquio con i servizi non dipende da pagina o desktop');
+    assert.ok(!/\b(document|window|localStorage|indexedDB|fetch|navigator)\b\s*[.(]/.test(leggi(f)), f + ' non spedisce niente da solo: riceve la funzione che lo fa');
+  }
   for (const f of [...sorgenti('ui'), ...sorgenti('piattaforma')]) {
     for (const m of importati(f)) {
       assert.ok(m !== 'electron' && !m.startsWith('node:'), f + ' importa ' + m + ': la pagina non ha accesso a Electron né a Node');

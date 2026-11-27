@@ -7,12 +7,15 @@
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
 import { companyKey, digits, normText } from '../anagrafiche.ts';
+import { approxContains } from '../simile.ts';
 import type { Party } from '../tipi.ts';
 import { bare, cellNumber, findDate, lineText, readNumber } from './testo.ts';
 import type { Cell, Line, Source } from './testo.ts';
 
 export interface Head {
   mandante: string; mandante_piva: string; cliente: string; cliente_piva: string;
+  /** il codice del cliente nel gestionale, se è stato riconosciuto nell'archivio */
+  cliente_cod: string;
   numero: string; data: string; consegna: string; pagamento: string; destinazione: string; note: string;
   imponibile: number | null; colli: number | null; pezzi: number | null;
 }
@@ -63,7 +66,7 @@ function numberFor(lines: readonly Line[], i: number, k: number): number | null 
 }
 
 /** L'azienda dell'archivio nominata nel testo: quella con il nome più lungo, se è una sola. */
-function partyIn(list: readonly Party[], text: string, vats: readonly string[], skip?: Party | null): Party | null {
+function partyIn(list: readonly Party[], text: string, vats: readonly string[], skip?: Party | null, rough = false): Party | null {
   for (const v of vats) { const hit = list.find(p => digits(p.piva) === v); if (hit && hit !== skip) return hit; }
   let best: Party | null = null, bestLen = 0, tie = false;
   /* nel testo letto da una foto gli spazi si perdono spesso: un nome lungo vale anche scritto tutto attaccato */
@@ -75,12 +78,24 @@ function partyIn(list: readonly Party[], text: string, vats: readonly string[], 
     if (text.indexOf(' ' + key + ' ') < 0 && !(key.length >= 10 && tight.indexOf(key.replace(/ /g, '')) >= 0)) continue;
     if (key.length > bestLen) { best = p; bestLen = key.length; tie = false; } else if (key.length === bestLen) tie = true;
   }
-  return tie ? null : best;
+  if (best || tie || !rough) return tie ? null : best;
+  /*
+   * Da una foto il nome può arrivare con qualche lettera sbagliata («BELVEDEREDAPROVA»): si cerca allora il nome
+   * scritto tutto attaccato ammettendo una lettera sbagliata ogni dieci, purché sia uno solo a corrispondere.
+   */
+  let hits: Party[] = [];
+  for (const p of list) {
+    if (p === skip) continue;
+    const key = companyKey(p.nome).replace(/ /g, '');
+    if (key.length >= 12 && approxContains(tight, key, Math.floor(key.length / 10))) hits.push(p);
+  }
+  hits = hits.filter((p, i) => hits.indexOf(p) === i);
+  return hits.length === 1 ? (hits[0] as Party) : null;
 }
 
 /** Legge testata e totali da tutte le fonti. `today` serve per le date relative («giovedì», «domani»). */
 export function readHead(sources: readonly Source[], cli: readonly Party[], man: readonly Party[], today: string): Head {
-  const h: Head = { mandante: '', mandante_piva: '', cliente: '', cliente_piva: '', numero: '', data: '', consegna: '', pagamento: '', destinazione: '', note: '', imponibile: null, colli: null, pezzi: null };
+  const h: Head = { mandante: '', mandante_piva: '', cliente: '', cliente_piva: '', cliente_cod: '', numero: '', data: '', consegna: '', pagamento: '', destinazione: '', note: '', imponibile: null, colli: null, pezzi: null };
   let merce: number | null = null, imponibile: number | null = null, supplierLine = -1, all = '';
   const vats: { v: string; supplier: boolean }[] = [], delivery: string[] = [];
 
@@ -142,10 +157,11 @@ export function readHead(sources: readonly Source[], cli: readonly Party[], man:
 
   /* cliente e casa mandante: prima quelli dell'archivio, riconosciuti dalla partita IVA o dal nome scritto nel documento */
   const norm = ' ' + normText(all).split(' ').filter(t => t.length > 1).join(' ') + ' ', vatList = vats.map(v => v.v);
-  const m = partyIn(man, norm, vatList) || (h.mandante ? partyIn(man, ' ' + companyKey(h.mandante) + ' ', []) : null);
+  const rough = sources.some(s => s.rough);
+  const m = partyIn(man, norm, vatList) || (h.mandante ? partyIn(man, ' ' + companyKey(h.mandante) + ' ', []) : null) || partyIn(man, norm, [], null, rough);
   if (m) { h.mandante = m.nome; h.mandante_piva = digits(m.piva); }
-  const c = partyIn(cli, norm, vatList);
-  if (c) { h.cliente = c.nome; h.cliente_piva = digits(c.piva); }
+  const c = partyIn(cli, norm, vatList, m) || partyIn(cli, norm, [], m, rough);
+  if (c) { h.cliente = c.nome; h.cliente_piva = digits(c.piva); h.cliente_cod = c.cod; }
   if (!h.mandante_piva) { const v = vats.find(x => x.supplier); if (v) h.mandante_piva = v.v; }
   if (!h.cliente_piva) { const v = vats.find(x => !x.supplier && x.v !== h.mandante_piva); if (v) h.cliente_piva = v.v; }
   /* in un documento vero e proprio chi ordina è scritto in cima, a sinistra */

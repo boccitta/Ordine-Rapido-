@@ -34,7 +34,7 @@ const SECOND_THOUGHT = /\b(?:anzi|invece|correggo|ho sbagliato|errata corrige)\b
 
 /** Dice se una descrizione somiglia a un articolo dell'archivio. Senza archivio risponde sempre sì. */
 export type Plausible = (description: string) => boolean;
-type Unit = 'colli' | 'pezzi' | '';
+export type Unit = 'colli' | 'pezzi' | '';
 
 function tidy(s: string): string {
   let d = s.replace(GIFT_WORDS, ' ').replace(TRAILER, '');
@@ -68,8 +68,8 @@ function parseSegment(raw: string, prev: Unit, plausible: Plausible, hasArchive:
     const n = readNumber(m[1] as string), rest = m[3] as string, d = tidy(rest);
     if (n !== null && n > 0 && n < 1000 && !NOT_GOODS.test(rest) && /[A-Za-zÀ-ÿ]{3}/.test(d) && d.split(' ').length <= 12 && (plausible(d) || !hasArchive)) {
       r.descrizione = d;
-      if (m[2]) { r.quantita = n; r.um = 'KG'; return { row: r, unit: prev, assumed: false }; }
-      if (PIECE_WORD.test(d)) { r.quantita = n; return { row: r, unit: prev, assumed: false }; }
+      if (m[2]) { r.quantita = n; r.um = 'KG'; return { row: r, unit: '', assumed: false }; }
+      if (PIECE_WORD.test(d)) { r.quantita = n; return { row: r, unit: '', assumed: false }; }
       if (prev === 'colli') r.colli = n; else r.quantita = n;
       return { row: r, unit: prev, assumed: true };
     }
@@ -93,12 +93,21 @@ function rowAbout(rows: readonly ReadRow[], word: string): number {
   return -1;
 }
 
-export interface FreeResult { rows: ReadRow[]; warnings: string[]; /** chi scrive i messaggi di una chat, dal più presente */ senders: string[] }
+export interface FreeResult {
+  rows: ReadRow[]; warnings: string[];
+  /** chi scrive i messaggi di una chat, dal più presente */
+  senders: string[];
+  /** le righe la cui quantità era scritta senza unità: la colonna (colli o pezzi) è stata supposta */
+  guessed: ReadRow[];
+}
 
-/** Ricava le righe d'ordine da righe di testo libero. */
-export function readFree(lines: readonly string[], plausible: Plausible, hasArchive: boolean): FreeResult {
-  const rows: ReadRow[] = [], warnings: string[] = [], assumed: string[] = [], seen: Record<string, number> = {};
-  let unit: Unit = '';
+/**
+ * Ricava le righe d'ordine da righe di testo libero. `usual` è l'unità che questo cliente sottintende di solito
+ * (imparata dagli ordini precedenti): vale per le quantità scritte senza unità finché il messaggio non ne nomina una.
+ */
+export function readFree(lines: readonly string[], plausible: Plausible, hasArchive: boolean, usual: Unit = ''): FreeResult {
+  const rows: ReadRow[] = [], warnings: string[] = [], assumed: string[] = [], guessed: ReadRow[] = [], seen: Record<string, number> = {};
+  let unit: Unit = usual, fromUsual = !!usual;
   for (const raw of lines) {
     let line = raw.trim();
     const chat = CHAT.exec(line);
@@ -125,12 +134,16 @@ export function readFree(lines: readonly string[], plausible: Plausible, hasArch
     for (const seg of line.split(/\s*;\s*|\s*,\s*(?=\d)|\s+e\s+(?=\d)|\s+\+\s+(?=\d)/)) {
       const p = parseSegment(seg, unit, plausible, hasArchive);
       if (!p) continue;
-      if (p.unit) unit = p.unit;
-      if (p.assumed) assumed.push(p.row.descrizione);
+      if (p.unit && !p.assumed) { unit = p.unit; fromUsual = false; }
+      if (p.assumed) {
+        guessed.push(p.row);
+        /* se l'unità sottintesa è quella di sempre per questo cliente, non c'è niente da segnalare */
+        if (!fromUsual) assumed.push(p.row.descrizione);
+      }
       rows.push(p.row);
     }
   }
   if (assumed.length) warnings.push('Quantità scritta senza unità (pezzi o cartoni) per: ' + assumed.slice(0, 6).join('; ') + (assumed.length > 6 ? '…' : '') + '. Verifica che sia nella colonna giusta.');
   const senders = Object.keys(seen).sort((a, b) => (seen[b] as number) - (seen[a] as number));
-  return { rows, warnings, senders };
+  return { rows, warnings, senders, guessed };
 }

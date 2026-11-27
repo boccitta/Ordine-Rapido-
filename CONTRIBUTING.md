@@ -33,7 +33,7 @@ Una richiesta è pronta quando:
 
 - [ ] `npm test` passa: prove e controllo dei dati;
 - [ ] `npm run tipi` passa: il controllo dei tipi non segnala errori;
-- [ ] la logica nuova sta in `src/core/` e ha la sua prova in `test/core.test.mjs`;
+- [ ] la logica nuova sta in `src/core/` e ha la sua prova in `test/` (`core`, `modello`, `lettura`, `ricette` o `ia`);
 - [ ] il registro delle modifiche ha la voce, sotto «Non rilasciato», con le tre risposte: che cosa cambia, perché, che cosa devi fare ([docs/RILASCI.md](docs/RILASCI.md));
 - [ ] se cambia un formato, [docs/FORMATI.md](docs/FORMATI.md) è aggiornato;
 - [ ] non compaiono nuovi indirizzi di rete, nuove librerie o nuovi dati salvati senza che la richiesta lo dica chiaramente.

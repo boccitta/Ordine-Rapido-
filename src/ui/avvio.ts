@@ -14,6 +14,7 @@ import { showProblem, wireProblems } from './errori.ts';
 import { wireExport } from './esporta.ts';
 import { renderAi, renderCols, renderTemplateInfo, syncOpts, wireSettings } from './impostazioni.ts';
 import { wireReading } from './lettura.ts';
+import { wireRecipes } from './ricette.ts';
 import { loadProfile, loadUi } from './preferenze.ts';
 import { refresh, renderHeadRow, renderRows, wireRows } from './righe.ts';
 import { applySkin, paint, wireScreens } from './schermate.ts';
@@ -30,7 +31,7 @@ function start(): void {
   /* un ordine rimasto aperto alla chiusura torna in lavorazione: dalla schermata «Carica» si riprende con un clic */
   restoreDraft();
 
-  wireArchive(); wireHead(); wireRows(); wireExport(); wireSettings(); wireReading(); wireScreens(); wireDraft();
+  wireArchive(); wireHead(); wireRows(); wireExport(); wireSettings(); wireReading(); wireScreens(); wireDraft(); wireRecipes();
 
   applySkin(); syncOpts(); renderHeadRow(); renderCols(); renderTemplateInfo(); fillHead(); renderRows(); refresh(); renderArchInfo(); renderAi(); paint();
   $('ver').textContent = INFO.versione; $('ver').title = 'Versione ' + INFO.versione;

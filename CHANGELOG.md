@@ -60,12 +60,29 @@ OC;300101;120;0,85;23/11/2026
 - **Perché.** Molti clienti ordinano «6 cartoni di…»: il gestionale di solito vuole anche i pezzi.
 - **Che cosa devi fare.** Ricarica l'elenco degli articoli se vuoi usare questa colonna. Una quantità già scritta non viene mai toccata.
 
-#### Lettura con Claude e la propria chiave API
+#### Le ricette dei clienti: ogni ordine esportato insegna come leggere il prossimo
 
-- **Che cosa cambia.** Per le scritture a mano e i documenti difficili si può far leggere a Claude: in **Impostazioni → Lettura degli ordini** si inserisce la propria chiave API di Anthropic. L'app la verifica, legge dall'account l'elenco dei modelli disponibili e propone quale usare. Finché la chiave manca legge questo dispositivo: la schermata iniziale lo dice e porta alle impostazioni. La chiave si può mostrare, rimuovere, oppure non far ricordare affatto.
-- **Perché.** Dentro Claude la lettura passava per la pagina. Un'app senza server non può contenere una chiave condivisa: sarebbe pubblica e chiunque potrebbe usarla a spese di qualcun altro. Ognuno usa quindi la propria.
-- **Che cosa devi fare.** Crea una chiave nella Console di Anthropic e incollala nelle impostazioni. Ogni lettura ha un costo addebitato all'account della chiave e richiede internet. Senza chiave l'app legge comunque gli ordini sul dispositivo.
+- **Che cosa cambia.** Quando esporti un ordine l'app confronta il documento del cliente con l'ordine finito e impara la sua **ricetta**: che cosa c'è in ogni colonna della sua tabella, anche con nomi che le regole generali non conoscono («Q», «Cf», «Euro», «Rif.»), e quale unità sottintende quando in un messaggio scrive solo un numero. Impara anche gli abbinamenti di tutte le righe collegate. Al suo ordine successivo la lettura parte dalla ricetta, e l'app lo scrive tra le note. Le ricette si vedono e si dimenticano dal pannello Archivio e finiscono nella copia di sicurezza.
+- **Perché.** Quasi ogni cliente manda gli ordini sempre nello stesso formato: quello che è stato sistemato a mano una volta non deve essere sistemato di nuovo.
+- **Che cosa devi fare.** Niente: basta esportare gli ordini come sempre.
 
+#### Claude, Gemini o GPT, a scelta, con la propria chiave
+
+- **Che cosa cambia.** Per le scritture a mano e i documenti difficili si può far leggere a un servizio di intelligenza artificiale: **Claude** (Anthropic), **Gemini** (Google) o **GPT** (OpenAI). In **Impostazioni → Lettura degli ordini** si sceglie il servizio, si inserisce la sua chiave API e si sceglie il modello tra quelli dell'account, con i consigliati in cima. Si può tenere una chiave per ogni servizio. Le chiavi si possono mostrare, rimuovere, oppure non far ricordare affatto.
+- **Perché.** Ognuno ha già un account con un servizio diverso, e prezzi e qualità cambiano nel tempo. Un'app senza server non può contenere una chiave condivisa: ognuno usa la propria.
+- **Che cosa devi fare.** Se vuoi usarla, crea una chiave presso il servizio che preferisci e incollala nelle impostazioni. Ogni lettura ha un costo addebitato all'account della chiave e richiede internet.
+
+#### Lettura automatica: il dispositivo, e l'intelligenza artificiale solo quando serve
+
+- **Che cosa cambia.** Con una chiave salvata la lettura diventa **automatica**: legge il dispositivo e, se il risultato è incompleto (nessuna riga, righe senza quantità, articoli che non somigliano a nulla dell'archivio), chiede al servizio scelto e tiene il risultato migliore. Se il servizio non risponde resta la lettura del dispositivo, con una nota. Si può anche scegliere di usare sempre il dispositivo o sempre il servizio.
+- **Perché.** Si paga e si invia qualcosa solo quando serve davvero, e un ordine non resta mai senza lettura.
+- **Che cosa devi fare.** Niente; la scelta è in **Impostazioni → Chi legge gli ordini**.
+
+#### Ricerca tollerante per le foto e la scrittura veloce
+
+- **Che cosa cambia.** Una parola con una lettera sbagliata («MALLOEDDUS») trova lo stesso l'articolo giusto; «500g», «1kg» e «all'uovo» scritto attaccato si riconoscono; cliente e casa mandante si riconoscono anche quando una foto ne storpia il nome.
+- **Perché.** Il riconoscimento dei caratteri e chi scrive di fretta sbagliano qualche lettera.
+- **Che cosa devi fare.** Niente.
 #### Archivio delle case mandanti
 
 - **Che cosa cambia.** Accanto ad articoli e clienti si può caricare l'elenco delle mandanti: codice, ragione sociale, partita IVA. La mandante dell'ordine viene riconosciuta per partita IVA o per ragione sociale, il suo codice compare tra i dati dell'ordine e viene esportato nella nuova colonna `CodMandante`. Tra i controlli compare «Mandante in anagrafica» oppure «Casa mandante non trovata in anagrafica».
@@ -195,15 +212,15 @@ OC;300101;120;0,85;23/11/2026
 - **Perché.** Quello che viene pubblicato su GitHub resta pubblico, anche nella cronologia.
 - **Che cosa devi fare.** Se contribuisci, usa solo i dati di `esempi/`. Non allegare ordini o esportazioni reali alle segnalazioni.
 
-#### L'app può collegarsi a un solo indirizzo
+#### L'app può collegarsi solo ai tre servizi di lettura
 
-- **Che cosa cambia.** La pagina dichiara una regola del browser (Content Security Policy) che permette collegamenti soltanto verso `api.anthropic.com`. Nell'app desktop dalla finestra non parte nessuna richiesta di rete, nemmeno verso Anthropic: con il servizio parla solo il processo principale, da una sessione di rete dedicata che raggiunge quell'unico indirizzo. La finestra apre nel browser solo collegamenti verso siti previsti e rifiuta fotocamera, microfono e posizione.
+- **Che cosa cambia.** La pagina dichiara una regola del browser (Content Security Policy) che permette collegamenti soltanto verso `api.anthropic.com`, `generativelanguage.googleapis.com` e `api.openai.com`, e il codice ne contatta solo uno: quello scelto, se c'è la sua chiave. Nell'app desktop dalla finestra non parte nessuna richiesta di rete: con i servizi parla solo il processo principale, da una sessione di rete dedicata che raggiunge quei tre indirizzi e nient'altro. La finestra apre nel browser solo collegamenti verso siti previsti e rifiuta fotocamera, microfono e posizione.
 - **Perché.** Chiave API e archivi non devono poter uscire verso altri indirizzi, nemmeno se un documento ricevuto fosse costruito apposta per provarci.
 - **Che cosa devi fare.** Niente.
 
-#### App desktop: la chiave API è custodita fuori dalla finestra e cifrata
+#### App desktop: le chiavi API sono custodite fuori dalla finestra e cifrate
 
-- **Che cosa cambia.** Nell'app desktop la chiave API non resta tra i dati della finestra. La custodisce il processo principale: la finestra la consegna una volta e non può più rileggerla (nelle impostazioni compaiono solo gli ultimi caratteri). Se scegli di ricordarla viene scritta su disco cifrata dal sistema operativo; su un Linux senza portachiavi non viene scritta e va inserita a ogni avvio.
+- **Che cosa cambia.** Nell'app desktop le chiavi API (una per servizio, in file separati) non restano tra i dati della finestra. La custodisce il processo principale: la finestra la consegna una volta e non può più rileggerla (nelle impostazioni compaiono solo gli ultimi caratteri). Se scegli di ricordarla viene scritta su disco cifrata dal sistema operativo; su un Linux senza portachiavi non viene scritta e va inserita a ogni avvio.
 - **Perché.** Una chiave in chiaro tra i dati di una pagina può essere letta da chiunque apra quei file, e da qualunque codice riesca a girare nella pagina. Tenerla nel processo principale toglie entrambe le possibilità.
 - **Che cosa devi fare.** Niente. Nella versione portatile `Ordine-Rapido.html` la chiave resta in chiaro tra i dati del browser, perché un browser non offre un posto protetto: vedi [SECURITY.md](SECURITY.md).
 
@@ -224,7 +241,7 @@ OC;300101;120;0,85;23/11/2026
 - **Pacchetti provati solo in automatico.** I pacchetti per Windows, Linux e Mac vengono costruiti dalla procedura di rilascio su GitHub, che avvia ciascuno sul proprio sistema, ne prova le funzioni principali e si ferma se uno non parte. Non sono stati provati a mano su computer di uso quotidiano.
 - **Pacchetti non firmati.** Windows e Mac mostrano un avviso al primo avvio. Le istruzioni sono nel README. Su Windows 11 con **Smart App Control** attivo non c'è solo un avviso: il sistema blocca i programmi non firmati e l'app desktop non parte finché i pacchetti non vengono firmati con un certificato di firma del codice. Su quei computer resta utilizzabile la versione portatile `Ordine-Rapido.html`. Dettagli in [SECURITY.md](SECURITY.md).
 - **Versione portatile.** I dati sono salvati nel browser e alcuni browser li legano alla posizione del file: tienilo sempre nella stessa cartella con lo stesso nome. È stata provata con Chromium.
-- **Lettura automatica.** Richiede internet e una chiave API. Vengono lette le prime 6 pagine di un PDF e al massimo 12 immagini per ordine.
+- **Lettura con l'intelligenza artificiale.** Richiede internet e una chiave API. Vengono lette le prime 6 pagine di un PDF e al massimo 12 immagini per ordine. Gemini e GPT sono stati provati con servizi simulati, secondo la loro documentazione del 27 novembre 2026, non con chiavi vere. Nella versione portatile, quando OpenAI rifiuta una richiesta il browser non ne lascia leggere il motivo.
 - **Uso dentro Claude.** Il codice conserva il funzionamento come pagina dentro Claude, ma questa versione non è stata riprovata in quella forma.
 
 [Non rilasciato]: ../../compare/v1.0.0...HEAD

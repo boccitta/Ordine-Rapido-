@@ -2,7 +2,7 @@
 
 **Ordine Rapido** trasforma gli ordini che ricevi dai clienti (PDF, Excel, foto o un semplice messaggio) in un file CSV o Excel pronto da importare nel gestionale, fatto come il gestionale lo vuole e usando **solo codici che nel gestionale esistono già**.
 
-È pensato per gli agenti di commercio, è gratuito ed è software libero con licenza GPL-3.0. Funziona da solo sul tuo computer: non ha un server, non ha bisogno di un dominio e **legge gli ordini senza chiave API e senza inviare nulla**. Chi vuole può aggiungere Claude per i documenti più difficili.
+È pensato per gli agenti di commercio, è gratuito ed è software libero con licenza GPL-3.0. Funziona da solo sul tuo computer: non ha un server, non ha bisogno di un dominio e **legge gli ordini senza chiave API e senza inviare nulla**. Chi vuole può aggiungere Claude, Gemini o GPT per i documenti più difficili, e da ogni ordine esportato l'app impara come leggere il prossimo dello stesso cliente.
 
 ![La schermata di controllo di Ordine Rapido con un ordine di esempio](docs/img/controlla.png)
 
@@ -34,7 +34,7 @@ Altre cose utili:
 
 - Confronta colli, pezzi e importo con i totali scritti sul documento del cliente.
 - Riconosce le righe omaggio e le esporta come sconto 100 %, prezzo zero o solo con la colonna Omaggio, a tua scelta.
-- Impara gli abbinamenti che confermi: la volta dopo, la stessa descrizione dello stesso cliente viene collegata da sola.
+- Impara da ogni ordine esportato: gli abbinamenti delle righe e la ricetta del cliente, cioè com'è fatto il suo documento. Il suo ordine successivo viene letto allo stesso modo.
 - Il file si adatta al gestionale: carichi un suo file di esempio e l'app ne ricava colonne, ordine, intestazioni, separatore, decimali, formato delle date e codifica. Le colonne che il gestionale vuole sempre uguali, come il tipo di documento, diventano valori fissi. Ogni dettaglio si può ritoccare a mano.
 - Se l'ordine indica solo i cartoni e l'archivio dice quanti pezzi stanno in un collo, la quantità in pezzi viene calcolata.
 - Tema chiaro e scuro, utilizzabile anche da telefono.
@@ -72,45 +72,68 @@ Sul tuo dispositivo, dentro l'app o il browser che stai usando. Non vengono invi
 
 ## Lettura degli ordini
 
-Gli ordini si possono leggere in due modi. Lo scegli in **Impostazioni → Chi legge gli ordini**.
+Lo scegli in **Impostazioni → Chi legge gli ordini**:
 
-### Su questo dispositivo (senza chiave, senza internet)
+| Scelta | Che cosa succede |
+|---|---|
+| **Solo questo dispositivo** | Niente esce dal computer. Se un ordine non si riesce a leggere, l'app lo dice e propone l'intelligenza artificiale |
+| **Automatico** (consigliato quando hai una chiave) | Legge sul dispositivo; se la lettura è incompleta (righe senza quantità, articoli che non somigliano a nulla dell'archivio, scrittura a mano) chiede al servizio scelto e tiene il risultato migliore. Se il servizio non risponde resta la lettura del dispositivo |
+| **Sempre l'intelligenza artificiale** | Ogni ordine viene inviato al servizio scelto |
 
-È il modo predefinito: non serve una chiave API, non costa nulla e **niente esce dal dispositivo**.
+Senza nessuna chiave vale la prima.
+
+### Sul dispositivo (senza chiave, senza internet)
+
+Non serve una chiave API, non costa nulla e **niente esce dal dispositivo**.
 
 | Che cosa | Come viene letto |
 |---|---|
 | Excel, CSV | Le celle così come sono: l'app riconosce la riga con i nomi delle colonne e incolonna codici, colli, quantità, prezzi, sconti e importi |
 | PDF con testo | Il testo e la sua posizione sulla pagina: è la posizione a dire in quale colonna sta un numero |
 | Messaggi e mail | Le righe scritte a parole («6 cartoni di…», «passata 10 ct»), le tabelle scritte a spazi e le correzioni più comuni («anzi fai 12», «togli i…») |
-| Foto e scansioni | Prima il riconoscimento dei caratteri (modelli PP-OCRv6, inclusi nell'app), poi le stesse regole |
+| Foto e scansioni | Prima il riconoscimento dei caratteri (modelli PP-OCRv6, inclusi nell'app), poi le stesse regole. Le foto un po' storte vengono raddrizzate, e una parola con una lettera sbagliata trova lo stesso l'articolo giusto |
 
 Non c'è un'intelligenza artificiale che interpreta: sono regole, ancorate al tuo archivio. I codici si riconoscono perché esistono nell'archivio, cliente e casa mandante perché il loro nome o la loro partita IVA è scritta nel documento, e una descrizione senza codice viene confrontata con le descrizioni degli articoli per **proporre** quello giusto, da confermare.
 
 Limiti da conoscere:
 
 - La **scrittura a mano** viene letta male: qualche riga può mancare o avere lettere sbagliate. L'app lo segnala ogni volta che legge una foto.
-- Le impaginazioni insolite possono non essere riconosciute: in quel caso l'app lo dice e propone Claude oppure le righe a mano.
+- Le impaginazioni insolite possono non essere riconosciute la prima volta: in quel caso l'app lo dice e propone l'intelligenza artificiale oppure le righe a mano. Dalla volta dopo vale la ricetta del cliente (vedi sotto).
 - La lettura delle foto è inclusa nelle app per Windows, Linux e Mac e nella cartella `app/`; non è nella versione in un solo file `Ordine-Rapido.html`, che resterebbe troppo pesante. Aggiunge circa 28 MB e si carica solo alla prima foto.
 - Su un computer recente una foto richiede pochi secondi, su uno modesto fino a una ventina.
 
-### Con Claude (facoltativo)
+### Le ricette dei clienti
 
-Per le scritture a mano e i documenti difficili puoi far leggere a Claude, il modello di Anthropic, con la **tua chiave API**.
+Quasi ogni cliente manda gli ordini sempre nello stesso formato. **Ogni volta che esporti un ordine**, l'app lo considera giusto e impara due cose:
 
-1. Crea una chiave nella [Console di Anthropic](https://platform.claude.com/settings/keys).
-2. Nell'app apri **Impostazioni**, incolla la chiave e premi **Salva e prova**.
-3. Scegli il modello. L'elenco viene letto dal tuo account.
+- gli **abbinamenti** di tutte le righe collegate: la stessa descrizione o lo stesso codice del cliente, la volta dopo, si collegano da soli all'articolo giusto, anche se una foto ne sbaglia qualche lettera;
+- la **ricetta del cliente**: confronta il suo documento con l'ordine finito e si ricorda che cosa c'è in ogni colonna, anche con nomi che le regole generali non conoscono («Q», «Cf», «Euro», «Rif.»), e quale unità il cliente sottintende quando in un messaggio scrive solo un numero.
+
+Al prossimo ordine dello stesso cliente la lettura parte dalla sua ricetta, e l'app lo scrive tra le note di lettura. Se legge l'intelligenza artificiale, la ricetta le viene passata come indicazione. Le ricette si vedono e si dimenticano dal pannello **Archivio**, finiscono nella copia di sicurezza e non escono dal dispositivo.
+
+### Con l'intelligenza artificiale (facoltativo)
+
+Per le scritture a mano e i documenti difficili puoi usare uno di questi servizi, con la **tua chiave API**:
+
+| Servizio | Dove si crea la chiave | Modelli proposti |
+|---|---|---|
+| **Claude**, di Anthropic | [Console di Anthropic](https://platform.claude.com/settings/keys) | Claude Sonnet 5.5 (consigliato), Claude Haiku 5.5 (più economico), Claude Opus 5.5 |
+| **Gemini**, di Google | [Google AI Studio](https://aistudio.google.com/apikey) | Gemini 4 Hydrogen (consigliato), Gemini 3.5 Flash-Lite (più economico), Gemini 4 Carbon |
+| **GPT**, di OpenAI | [piattaforma di OpenAI](https://platform.openai.com/api-keys) | GPT-6.2 Sol (consigliato), GPT-6.1 Terra (più economico), GPT-6.2 Astra |
+
+1. Nell'app apri **Impostazioni**, scegli il **Servizio**, incolla la chiave e premi **Salva e prova**.
+2. Scegli il modello: l'elenco viene letto dal tuo account, con i consigliati in cima.
+3. Puoi salvare una chiave per ogni servizio e passare dall'uno all'altro quando vuoi.
 
 Cose da sapere:
 
-- **Serve internet**, e il documento dell'ordine viene inviato ad Anthropic.
-- **Ogni lettura ha un costo**, addebitato da Anthropic all'account della chiave. Dipende dal modello e dalla lunghezza del documento: consulta i [prezzi dei modelli](https://platform.claude.com/docs/en/models/overview).
-- La chiave resta sul tuo dispositivo e viene inviata soltanto ad Anthropic. Non entra negli archivi, nelle copie di sicurezza né nel file esportato. Puoi anche scegliere di non farla ricordare. Nell'app desktop è custodita cifrata dal sistema operativo e, una volta salvata, non viene più mostrata: se ne vedono solo gli ultimi caratteri.
+- **Serve internet**, e il documento dell'ordine viene inviato al servizio scelto. Come lo tratta è scritto nelle sue condizioni: valuta tu se sono adatte ai documenti dei tuoi clienti. Per esempio Google indica che con il livello gratuito di Gemini i dati inviati possono essere usati per migliorare i suoi prodotti; a OpenAI l'app chiede di non conservare le risposte.
+- **Ogni lettura ha un costo**, addebitato dal servizio all'account della chiave. Dipende dal modello e dalla lunghezza del documento: consulta i prezzi sul sito del servizio.
+- Ogni chiave resta sul tuo dispositivo e viene inviata soltanto al suo servizio. Non entra negli archivi, nelle copie di sicurezza né nel file esportato. Puoi anche scegliere di non farla ricordare. Nell'app desktop è custodita cifrata dal sistema operativo e, una volta salvata, non viene più mostrata: se ne vedono solo gli ultimi caratteri.
+- Nella versione portatile, se OpenAI rifiuta una richiesta (per esempio per credito esaurito) il browser non lascia leggere il motivo: l'app dice che non riesce a contattare il servizio o che il servizio ha rifiutato. L'app desktop mostra il motivo esatto.
 - Vengono letti al massimo le prime 6 pagine di un PDF e 12 immagini per ordine.
 
 Chiunque legga, vale la stessa regola: la lettura trascrive, non decide. I codici validi sono solo quelli dell'archivio, e ogni ordine va controllato prima di esportare.
-
 ## Scaricare e avviare
 
 Tutti i file si trovano nella pagina [**Releases**](../../releases/latest) della repository.
@@ -177,13 +200,14 @@ Scarica i pacchetti soltanto dalla pagina ufficiale dei rilasci di questa reposi
 |---|---|---|
 | Archivi di articoli, clienti e mandanti | Sul dispositivo | No, salvo quanto indicato sotto per i suggerimenti |
 | Abbinamenti imparati e tracciato del file | Sul dispositivo | No |
-| Chiave API | Sul dispositivo; nell'app desktop cifrata dal sistema operativo | Solo verso Anthropic, per autenticare le letture |
-| Documento dell'ordine (testo e immagini delle pagine) o messaggio incollato | Non viene salvato | Con la lettura sul dispositivo, no. **Sì, verso Anthropic**, se hai scelto di far leggere a Claude e premi Leggi ordine |
+| Chiavi API (una per servizio) | Sul dispositivo; nell'app desktop cifrate dal sistema operativo | Ognuna solo verso il suo servizio, per autenticare le letture |
+| Ricette dei clienti | Sul dispositivo, insieme agli abbinamenti imparati | No |
+| Documento dell'ordine (testo e immagini delle pagine) o messaggio incollato | Non viene salvato | Con la lettura sul dispositivo, no. **Sì, verso il servizio scelto** (Anthropic, Google o OpenAI) se legge l'intelligenza artificiale: sempre, oppure in automatico solo quando la lettura del dispositivo è incompleta. Insieme al documento parte, se c'è, la ricetta di quel cliente |
 | Ordine in lavorazione (righe e dati dell'ordine, così come li stai controllando) | Sul dispositivo, per ritrovarlo se l'app si chiude; sparisce quando premi Nuovo ordine | No |
-| Righe non trovate e articoli candidati | — | Con la lettura sul dispositivo, no: le proposte si calcolano sul posto. Se legge Claude, **sì, verso Anthropic**, per i suggerimenti di abbinamento: partono da soli dopo una lettura se restano righe non trovate, oppure quando premi Suggerisci abbinamenti. Vengono inviati descrizione, codice e prezzo della riga, e codice, descrizione, unità di misura e listino di al massimo 10 articoli candidati per riga |
+| Righe non trovate e articoli candidati | — | Con la lettura sul dispositivo, no: le proposte si calcolano sul posto. Se legge l'intelligenza artificiale (sempre o in automatico), **sì, verso il servizio scelto**, per i suggerimenti di abbinamento: partono da soli dopo una lettura se restano righe non trovate, oppure quando premi Suggerisci abbinamenti. Vengono inviati descrizione, codice e prezzo della riga, e codice, descrizione, unità di misura e listino di al massimo 10 articoli candidati per riga |
 | File esportato (CSV o Excel) | Dove lo salvi tu | No |
 
-L'app può collegarsi a un solo indirizzo, `api.anthropic.com`, e solo se hai scelto di far leggere gli ordini a Claude con la tua chiave. Non ha statistiche d'uso, pubblicità o tracciamento. Come Anthropic tratta i dati ricevuti tramite API è descritto nelle sue condizioni; valuta tu se sono adatte ai documenti dei tuoi clienti.
+L'app può collegarsi solo a tre indirizzi, uno per servizio (`api.anthropic.com`, `generativelanguage.googleapis.com`, `api.openai.com`), e solo a quello scelto, se hai impostato la sua chiave. Non ha statistiche d'uso, pubblicità o tracciamento. Come ogni servizio tratta i dati ricevuti tramite API è descritto nelle sue condizioni; valuta tu se sono adatte ai documenti dei tuoi clienti.
 
 Nella versione portatile i dati sono salvati nel browser: altre pagine HTML aperte dal tuo computer con lo stesso browser potrebbero leggerli. Apri solo file di cui ti fidi, oppure usa l'app desktop, che tiene i dati in uno spazio suo. I dettagli sono in [SECURITY.md](SECURITY.md).
 
@@ -225,7 +249,7 @@ La cartella [`esempi/`](esempi/) contiene solo dati inventati: tre archivi, un o
 
 1. Apri **Archivio** e carica `articoli-esempio.csv`, `clienti-esempio.csv` e `mandanti-esempio.csv`.
 2. Premi **Prova con un ordine di esempio**: vedi l'ordine già trascritto e collegato, senza bisogno della chiave.
-3. Con la chiave impostata, carica `ordine-esempio.pdf` e premi **Leggi ordine**.
+3. Carica `ordine-esempio.pdf` e premi **Leggi ordine**: lo legge il dispositivo, senza chiave.
 
 Aziende, indirizzi, codici e prezzi sono di fantasia. Le partite IVA hanno la cifra di controllo volutamente sbagliata e i codici a barre usano un prefisso riservato all'uso interno: non possono appartenere ad aziende o prodotti reali.
 
@@ -248,10 +272,10 @@ Regole e procedura completa: [docs/RILASCI.md](docs/RILASCI.md).
 Il codice è scritto in TypeScript, senza framework, e diviso in moduli; uno script lo compila nei file che l'app esegue. Per provarla: `npm ci`, `npm run compila`, poi apri `app/index.html`.
 
 ```text
-src/core/         logica pura: calcoli, controlli, abbinamento con l'archivio, tracciato, modello del gestionale, copia di sicurezza
+src/core/         logica pura: calcoli, controlli, abbinamento con l'archivio, tracciato, modello del gestionale, ricette dei clienti, copia di sicurezza
 src/core/lettura/ lettura degli ordini sul dispositivo: tabelle, messaggi, testata, senza intelligenza artificiale
 src/ocr/          il motore che riconosce i caratteri nelle foto (gira in un processo separato)
-src/anthropic/    come si compone la richiesta ad Anthropic e come si legge la risposta
+src/ia/           i tre servizi di intelligenza artificiale (Claude, Gemini, GPT): richieste, risposte, errori
 src/piattaforma/  i tre ambienti (browser, app desktop, dentro Claude) dietro un unico contratto
 src/ui/           interfaccia: schermate, righe, archivio, lettura, esportazione, impostazioni
 src/desktop/      app desktop (Electron): processo principale, ponte con la finestra, chiave cifrata, archivi su file

@@ -61,6 +61,8 @@ export interface Index {
   mk: string[];
   /** parole della descrizione di ogni articolo: calcolate alla prima ricerca */
   tok: string[][] | null;
+  /** tutte le parole delle descrizioni, una volta sola: servono a ritrovare una parola scritta con qualche lettera sbagliata */
+  voc: Record<string, 1> | null;
 }
 
 /**

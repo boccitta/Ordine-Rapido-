@@ -13,12 +13,12 @@ import type { DesktopBridge } from './contratto.ts';
 const bridge: DesktopBridge = {
   key: {
     state: () => ipcRenderer.invoke(CHANNEL.keyState),
-    verify: (key, remember) => ipcRenderer.invoke(CHANNEL.keyVerify, key, remember),
+    verify: (provider, key, remember) => ipcRenderer.invoke(CHANNEL.keyVerify, provider, key, remember),
     remember: remember => ipcRenderer.invoke(CHANNEL.keyRemember, remember),
-    forget: () => ipcRenderer.invoke(CHANNEL.keyForget)
+    forget: provider => ipcRenderer.invoke(CHANNEL.keyForget, provider)
   },
   read: {
-    ask: (id, model, prompt, images) => ipcRenderer.invoke(CHANNEL.readAsk, id, model, prompt, images),
+    ask: (id, provider, model, prompt, images) => ipcRenderer.invoke(CHANNEL.readAsk, id, provider, model, prompt, images),
     stop: id => { ipcRenderer.send(CHANNEL.readStop, id); }
   },
   archives: {

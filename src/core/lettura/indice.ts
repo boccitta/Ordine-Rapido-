@@ -9,6 +9,7 @@
  */
 import { search } from '../abbinamento.ts';
 import { normCode, noZeros } from '../anagrafiche.ts';
+import { findRecipe, formatsFor } from '../ricette.ts';
 import type { Index, Party } from '../tipi.ts';
 import { GIFT_WORDS, readFree } from './libera.ts';
 import { readTables } from './tabella.ts';
@@ -21,8 +22,11 @@ export { fromGrid, fromItems, fromText, findDate, readNumber } from './testo.ts'
 export type { Cell, Item, Line, Source } from './testo.ts';
 export type { ReadRow } from './tabella.ts';
 
-/** Quello che la lettura può consultare: l'archivio caricato e la data di oggi. */
-export interface LocalContext { ix: Index | null; cli: readonly Party[]; man: readonly Party[]; today: string }
+/**
+ * Quello che la lettura può consultare: l'archivio caricato, la data di oggi e gli abbinamenti imparati,
+ * dentro i quali stanno le ricette dei clienti (vedi ricette.ts).
+ */
+export interface LocalContext { ix: Index | null; cli: readonly Party[]; man: readonly Party[]; today: string; alias?: Readonly<Record<string, string>> }
 export interface LocalAnswer {
   mandante: { nome: string | null; piva: string | null };
   cliente: { nome: string | null; piva: string | null };
@@ -31,6 +35,32 @@ export interface LocalAnswer {
   righe: ReadRow[];
   totali: { imponibile: number | null; colli: number | null; pezzi: number | null };
   avvisi: string[];
+  /** la ricetta usata, se una tabella è stata letta con un formato imparato o i messaggi con l'unità di sempre */
+  ricetta: { cliente: string; ordini: number } | null;
+}
+
+/* come dire a un servizio di intelligenza artificiale che cosa contiene una colonna, nei termini della risposta che gli si chiede */
+const FIELD_HINT: Readonly<Record<string, string>> = {
+  cod_articolo: 'cod_articolo', cod_cliente: 'cod_cliente', ean: 'ean', descrizione: 'descrizione', um: 'um', colli: 'colli (cartoni)',
+  quantita: 'quantita (pezzi)', pzcollo: 'pezzi per collo, non è la quantità', prezzo: 'prezzo', sconto: 'uno degli sconti', netto: 'prezzo_netto',
+  totale: 'totale', nota: 'nota', iva: 'aliquota IVA, da ignorare', riga: 'numero di riga, da ignorare', altro: 'da ignorare'
+};
+/**
+ * Quello che l'app ha imparato dagli ordini precedenti del cliente, scritto per un servizio di intelligenza artificiale:
+ * com'è fatta la tabella dei suoi ordini e che cosa intende quando scrive una quantità senza unità. Vuoto se non c'è ricetta.
+ */
+export function recipeHints(sources: readonly Source[], ctx: LocalContext): string[] {
+  const h = readHead(sources, ctx.cli, ctx.man, ctx.today);
+  const mine = findRecipe(ctx.alias || {}, { nome: h.cliente, piva: h.cliente_piva, cod: h.cliente_cod });
+  if (!mine) return [];
+  const out: string[] = [];
+  for (const f of mine.recipe.formati.slice(0, 2)) {
+    const cols = f.firma.filter(n => f.colonne[n]).map(n => '«' + n + '» = ' + (FIELD_HINT[f.colonne[n] as string] || f.colonne[n]));
+    if (cols.length) out.push('- Colonne della tabella nei suoi ordini: ' + cols.join('; ') + '.');
+  }
+  if (mine.recipe.unita) out.push('- Quando scrive una quantità senza unità intende ' + (mine.recipe.unita === 'colli' ? 'colli (cartoni)' : 'pezzi') + '.');
+  if (!out.length) return [];
+  return ['Il cliente sembra «' + (mine.recipe.nome || 'già noto') + '». Dai suoi ordini precedenti, già controllati, risulta:'].concat(out);
 }
 
 const MAX_ROWS = 400;
@@ -45,8 +75,19 @@ export function readLocal(sources: readonly Source[], ctx: LocalContext): LocalA
   /* una descrizione è credibile se in archivio c'è qualcosa che le somiglia: serve a non scambiare un indirizzo per una riga */
   const plausible = (d: string) => { if (!ix) return true; const hit = search(ix, d, '', 1)[0]; return !!hit && hit.score >= 0.3; };
 
+  /* prima chi ha mandato l'ordine: se lo si conosce, la sua ricetta dice come sono fatti i suoi documenti */
+  const h = readHead(sources, ctx.cli, ctx.man, ctx.today), alias = ctx.alias || {};
+  const mine = findRecipe(alias, { nome: h.cliente, piva: h.cliente_piva, cod: h.cliente_cod });
+  const learned = formatsFor(alias, mine ? mine.recipe : null), formats = learned.map(x => x.format);
+  let usedRecipe: { cliente: string; ordini: number } | null = null;
+
   for (const src of sources) {
-    const t = readTables(src.lines, src.kind), base = rows.length;
+    const t = readTables(src.lines, src.kind, formats), base = rows.length;
+    for (const k of t.formats) {
+      const from = learned[k] ? (learned[k] as { from: string }).from : '';
+      const rec = from && mine && mine.recipe.nome === from ? mine.recipe : null;
+      if (!usedRecipe) usedRecipe = { cliente: from, ordini: rec ? rec.ordini : 0 };
+    }
     if (t.rows.length) {
       for (const r of t.rows) rows.push(r);
       for (const i of t.guessedGifts) avvisi.push('Riga ' + (base + i + 1) + ': ha il prezzo ma né netto né importo. È trattata come omaggio (sconto merce): verifica con il cliente.');
@@ -56,7 +97,9 @@ export function readLocal(sources: readonly Source[], ctx: LocalContext): LocalA
         if (!t.used[i] && s.length < 400 && GIFT_WORDS.test(s)) avvisi.push('Fuori dalla tabella si parla di merce in omaggio: «' + s.slice(0, 160) + '». Se serve, aggiungi la riga a mano.');
       });
     } else {
-      const f = readFree(src.lines.map(lineText), plausible, !!ix);
+      const usual = mine && mine.recipe.unita ? mine.recipe.unita : '';
+      const f = readFree(src.lines.map(lineText), plausible, !!ix, usual);
+      if (usual && f.guessed.length && !usedRecipe && mine) usedRecipe = { cliente: mine.recipe.nome, ordini: mine.recipe.ordini };
       for (const r of f.rows) rows.push(r);
       for (const w of f.warnings) avvisi.push(w);
       if (!sender && f.rows.length && f.senders[0]) sender = f.senders[0];
@@ -81,7 +124,6 @@ export function readLocal(sources: readonly Source[], ctx: LocalContext): LocalA
     }
   }
 
-  const h = readHead(sources, ctx.cli, ctx.man, ctx.today);
   return {
     mandante: { nome: orNull(h.mandante), piva: orNull(h.mandante_piva) },
     cliente: { nome: orNull(h.cliente || sender), piva: orNull(h.cliente_piva) },
@@ -89,6 +131,7 @@ export function readLocal(sources: readonly Source[], ctx: LocalContext): LocalA
     pagamento: orNull(h.pagamento), note: orNull(h.note),
     righe: rows,
     totali: { imponibile: h.imponibile, colli: h.colli, pezzi: h.pezzi },
-    avvisi
+    avvisi,
+    ricetta: usedRecipe
   };
 }

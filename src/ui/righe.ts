@@ -260,8 +260,8 @@ export async function suggest(): Promise<number> {
   }
   if (!todo.length || S.order !== order) return 0;
   await platform().ready;
-  /* se legge questo dispositivo, anche le proposte restano qui: all'archivio non serve nessuno da fuori */
-  const reader = readerMode() === 'claude' ? platform().ai.reader() : null;
+  /* se legge solo questo dispositivo, anche le proposte restano qui: all'archivio non serve nessuno da fuori */
+  const reader = readerMode() !== 'local' ? platform().ai.reader() : null;
   if (reader) {
     try {
       const ans = await reader.json(buildMatchPrompt(todo), { cache: false });
@@ -326,11 +326,11 @@ export function refresh(): void {
 }
 
 /** Da chiamare a ogni modifica fatta a mano: l'ordine non è più quello esportato, né quello di esempio. */
-export function touched(): void { S.exported = false; S.isExample = false; }
+export function touched(): void { S.exported = false; S.isExample = false; S.learned = false; }
 
 /** Mette in lavorazione un ordine nuovo: letto, scritto a mano o di esempio. */
 export function setOrder(o: Order, example: boolean, newNotes: string[]): void {
-  S.order = o; S.isExample = !!example; S.notes = newNotes || []; S.exported = false;
+  S.order = o; S.isExample = !!example; S.notes = newNotes || []; S.exported = false; S.learned = false; S.sources = [];
   closeFinder(); matchAll(true); fillHead(); renderRows(); refresh();
 }
 

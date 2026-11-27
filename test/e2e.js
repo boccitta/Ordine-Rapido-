@@ -19,7 +19,7 @@ const PAGE = pathToFileURL(path.resolve(ROOT, process.argv[2] || 'app/index.html
 const UN_SOLO_FILE = !!process.argv[2] && !/index\.html$/.test(process.argv[2]);
 const ES = name => path.join(ROOT, 'esempi', name);
 const VERSIONE = require('../package.json').version;
-const { CHIAVE_FINTA, simulaAnthropic } = require('./simulazione.js');
+const { CHIAVE_FINTA, CHIAVE_GOOGLE, CHIAVE_OPENAI, simulaAnthropic, simulaAltri } = require('./simulazione.js');
 
 const passi = [];
 function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
@@ -27,7 +27,7 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
 (async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ordine-rapido-e2e-'));
   const profilo = path.join(dir, 'profilo');
-  const problemi = [], esterne = [], chiamate = [];
+  const problemi = [], esterne = [], chiamate = [], altre = [];
   let context = await chromium.launchPersistentContext(profilo, { acceptDownloads: true, viewport: { width: 1280, height: 860 } });
 
   async function apri() {
@@ -36,6 +36,7 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
     page.on('pageerror', e => problemi.push('errore: ' + e.message));
     page.on('request', r => { const u = r.url(); if (/^https?:/.test(u)) esterne.push(u); });
     await simulaAnthropic(page, chiamate);
+    await simulaAltri(page, altre);
     await page.goto(PAGE);
     await page.waitForFunction(() => document.getElementById('archChip').dataset.state !== 'load');
     return page;
@@ -76,9 +77,9 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
     await page.fill('#msg', 'ci sentiamo domani, grazie');
     await page.click('#btnRead');
     await page.waitForFunction(() => /Non ho trovato righe/.test(document.getElementById('readStatus').textContent));
-    assert.match(await page.textContent('#readStatus'), /Aggiungi Claude con la tua chiave/);
+    assert.match(await page.textContent('#readStatus'), /Aggiungi Claude, Gemini o GPT con la tua chiave/);
     await page.fill('#msg', '');
-    assert.equal(chiamate.length, 0, 'la lettura sul dispositivo non chiama Anthropic');
+    assert.equal(chiamate.length + altre.length, 0, 'la lettura sul dispositivo non chiama nessun servizio');
     passo('senza chiave: un messaggio letto sul dispositivo, e un avviso chiaro quando non ci sono righe');
 
     /* 3. Ordine di esempio senza archivio: avviso, nessun blocco */
@@ -139,7 +140,18 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
     assert.equal(await page.isVisible('#keyNote'), false);
     passo('chiave API verificata e salvata, elenco dei modelli letto dall\'account');
 
-    /* 7. Lettura di un PDF: testo e immagini al modello, righe collegate all'archivio */
+    /* 6b. In automatico: un messaggio che il dispositivo non sa leggere passa da solo al servizio scelto */
+    assert.equal(await page.inputValue('#ai-mode').catch(() => ''), 'auto', 'con una chiave salvata la lettura diventa automatica');
+    await page.fill('#msg', 'Buongiorno, mi mandi il solito della settimana scorsa. Grazie');
+    await page.click('#btnRead');
+    await page.waitForSelector('#v2:not([hidden])', { timeout: 60000 });
+    assert.equal(await page.locator('#tbody tr').count(), 5);
+    assert.match(await page.textContent('#notes'), /Letto da Claude perché la lettura sul dispositivo era incompleta/);
+    await page.click('#rail3'); await page.click('#btnNew');
+    passo('automatico: quando il dispositivo non trova righe, legge il servizio scelto e lo dice');
+
+    /* 7. Lettura di un PDF sempre con il servizio: testo e immagini al modello, righe collegate all\'archivio */
+    await page.click('#btnSet'); await page.selectOption('#ai-mode', 'ai'); await page.click('#setClose');
     await page.setInputFiles('#fileInput', ES('ordine-esempio.pdf'));
     await page.click('#btnRead');
     await page.waitForSelector('#v2:not([hidden])', { timeout: 60000 });
@@ -167,7 +179,8 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
     assert.deepEqual([...new Set(righe.slice(1).map(r => r[col('CodCliente')] + '|' + r[col('CodMandante')]))], ['C0012|M001']);
     assert.equal(righe[4][col('Omaggio')], 'S'); assert.equal(righe[4][col('Sconto1')], '100');
     assert.equal(righe[1][col('Prezzo')], '0,85');
-    passo('CSV scaricato: codici articolo, cliente e mandante sono quelli dell\'archivio');
+    assert.match(await page.textContent('#expStatus'), /Ho imparato com.è fatto l.ordine di MARKET FANTASIA/);
+    passo('CSV scaricato: codici articolo, cliente e mandante sono quelli dell\'archivio; imparata la ricetta del cliente');
 
     /* 9. Una riga che non è in archivio blocca l'esportazione */
     await page.click('#btnBack2');
@@ -266,6 +279,21 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
     /* 11c. Una foto letta sul dispositivo. Nella versione in un solo file il riconoscimento dei caratteri non c'è: l'app lo dice. */
     await page.selectOption('#ai-mode', 'local');
     await page.click('#setClose');
+
+    /* 11b2. La ricetta imparata vale alla lettura successiva dello stesso cliente, sul dispositivo */
+    await page.click('#rail3').catch(() => {}); await page.click('#btnNew').catch(() => {});
+    await page.click('#rail1');
+    await page.setInputFiles('#fileInput', ES('ordine-esempio.pdf'));
+    await page.click('#btnRead');
+    await page.waitForSelector('#v2:not([hidden])', { timeout: 60000 });
+    assert.match(await page.textContent('#notes'), /Letto con la ricetta imparata dagli ordini di MARKET FANTASIA/);
+    await page.click('#archChip');
+    assert.match(await page.textContent('#recipeInfo'), /^1 cliente/);
+    await page.click('#btnRecipes');
+    assert.match(await page.textContent('#recipeList'), /MARKET FANTASIA S\.R\.L\..*1 ordine/s);
+    await page.click('#archClose');
+    await page.click('#rail3');
+    passo('ricetta del cliente: usata al suo ordine successivo e visibile nel pannello Archivio');
     const carta = await context.newPage();
     await carta.setViewportSize({ width: 1400, height: 760 });
     await carta.setContent('<body style="margin:50px;background:#fff;font:30px Arial,Helvetica,sans-serif;color:#111"><p><b>BUONO D\'ORDINE N. 0412</b> del 23/11/2026</p><p>Fornitore: CONSERVE FANTASIA S.P.A.</p>' +
@@ -293,17 +321,49 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
     await page.click('#rail1');
     /* per l'ultima prova serve un ordine aperto: se la foto non è stata letta, si apre quello di esempio */
     if (UN_SOLO_FILE) await page.click('#btnExample');
-    await page.click('#btnSet'); await page.selectOption('#ai-mode', 'claude'); await page.click('#setClose');
+    await page.click('#btnSet'); await page.selectOption('#ai-mode', 'ai'); await page.click('#setClose');
 
-    /* 12. Nessun contatto con internet oltre all'indirizzo di Anthropic (qui simulato), nessun errore */
-    const altre = esterne.filter(u => !u.startsWith('https://api.anthropic.com/'));
-    assert.deepEqual(altre, [], 'richieste verso altri siti');
-    assert.deepEqual(problemi.filter(p => !/401/.test(p)), [], 'errori nella pagina');
+    /* 11d. Gemini e GPT: una chiave ciascuno, l'elenco dei modelli adatti, la lettura con il servizio scelto */
+    for (const [quale, chiave, modello, host] of [['gemini', CHIAVE_GOOGLE, 'gemini-4-hydrogen', 'generativelanguage.googleapis.com'], ['openai', CHIAVE_OPENAI, 'gpt-6.2-sol', 'api.openai.com']]) {
+      await page.click('#btnSet');
+      await page.selectOption('#ai-provider', quale);
+      assert.equal(await page.inputValue('#ai-key'), '', 'ogni servizio ha la sua chiave');
+      await page.fill('#ai-key', 'chiave-sbagliata');
+      await page.click('#btnAiSave');
+      await page.waitForFunction(() => /non è valida/.test(document.getElementById('aiStatus').textContent));
+      await page.fill('#ai-key', chiave);
+      await page.click('#btnAiSave');
+      await page.waitForFunction(() => /Chiave valida/.test(document.getElementById('aiStatus').textContent));
+      const modelli = await page.locator('#ai-model option').evaluateAll(o => o.map(x => x.value));
+      assert.equal(modelli[0], modello, 'il modello consigliato per primo');
+      assert.ok(!modelli.some(m => /image|realtime|tts/.test(m)), 'niente modelli che non leggono documenti');
+      assert.equal(await page.inputValue('#ai-model'), modello);
+      assert.match(await page.textContent('#aiKeys'), /Claude ✓/);
+      await page.click('#setClose');
+      await page.click('#rail1').catch(() => {});
+      await page.setInputFiles('#fileInput', ES('ordine-esempio.pdf'));
+      await page.click('#btnRead');
+      await page.waitForSelector('#v2:not([hidden])', { timeout: 60000 });
+      assert.equal(await page.locator('#tbody tr').count(), 5);
+      const r = altre.filter(c => c.host === host && c.body).pop();
+      assert.ok(r, 'la lettura è passata da ' + host);
+      assert.ok(!r.url.includes(chiave), 'la chiave non va nell\'indirizzo');
+      if (quale === 'gemini') assert.ok(r.body.contents[0].parts.some(x => x.inline_data) && r.body.generationConfig.responseMimeType === 'application/json');
+      else assert.ok(r.body.input[0].content.some(x => x.type === 'input_image') && r.body.store === false && r.body.model === modello);
+      await page.click('#rail3'); await page.click('#btnNew');
+    }
+    await page.click('#btnSet'); await page.selectOption('#ai-provider', 'anthropic'); await page.click('#setClose');
+    passo('Gemini e GPT: chiave verificata, modelli adatti, ordine letto dal servizio scelto');
+
+    /* 12. Nessun contatto con internet oltre agli indirizzi dei tre servizi (qui simulati), nessun errore */
+    const fuori = esterne.filter(u => !/^https:\/\/(api\.anthropic\.com|generativelanguage\.googleapis\.com|api\.openai\.com)\//.test(u));
+    assert.deepEqual(fuori, [], 'richieste verso altri siti');
+    assert.deepEqual(problemi.filter(p => !/40[01]/.test(p)), [], 'errori nella pagina');
     assert.equal(await page.isVisible('#oops'), false, 'nessun avviso di errore imprevisto');
     /* «Nuovo ordine» chiude davvero l'ordine: non deve ricomparire alla riapertura */
-    await page.click('#rail3'); await page.click('#btnNew');
+    await page.click('#btnExample'); await page.click('#rail3'); await page.click('#btnNew');
     await page.waitForFunction(() => localStorage.getItem('ordine-rapido-bozza') === null);
-    passo('nessuna richiesta verso altri siti, nessun errore nella pagina');
+    passo('nessuna richiesta verso siti diversi dai tre servizi, nessun errore nella pagina');
 
     console.log('\nTutto bene: ' + passi.length + ' prove superate su ' + PAGE);
   } finally {

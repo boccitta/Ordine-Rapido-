@@ -1,7 +1,8 @@
 /*
  * Ordine Rapido - app desktop per Windows, Linux e Mac: il processo principale.
  * Apre in una finestra la pagina della cartella app/, senza server e senza dominio, e fa per lei le tre cose
- * che una pagina non deve fare da sola: custodire la chiave API, parlare con Anthropic, scrivere gli archivi su disco.
+ * che una pagina non deve fare da sola: custodire le chiavi API, parlare con il servizio di lettura scelto (Anthropic,
+ * Google o OpenAI), scrivere gli archivi su disco.
  *
  * Copyright (C) 2026 Roberto Murenu
  * Software libero distribuito con licenza GNU General Public License versione 3 (GPL-3.0-only),
@@ -11,19 +12,19 @@ import { app, BrowserWindow, ipcMain, Menu, session, shell } from 'electron';
 import type { IpcMainEvent, IpcMainInvokeEvent, MenuItemConstructorOptions, Session } from 'electron';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { API, MAX_IMAGES, askJson, keyLooksValid, listModels } from '../anthropic/protocollo.ts';
-import type { EncodedImage, Send } from '../anthropic/protocollo.ts';
 import { AppError } from '../core/tipi.ts';
+import { MAX_IMAGES, PROVIDERS, allowedUrl, isProviderId, keyLooksValid } from '../ia/indice.ts';
+import type { EncodedImage, ProviderId, Send } from '../ia/indice.ts';
 import { ArchiveFiles, isKind } from './archivi.ts';
 import { KeyVault } from './chiave.ts';
 import { CHANNEL } from './contratto.ts';
-import type { Failure, KeyState, KeyVerified, Reply, StoredArchive, StoredArchives } from './contratto.ts';
+import type { Failure, KeyStates, KeyVerified, Reply, StoredArchive, StoredArchives } from './contratto.ts';
 
 const PAGINA = path.join(__dirname, '..', 'app', 'index.html');
 const PONTE = path.join(__dirname, 'preload.js');
 /* Gli unici siti che un collegamento dell'app può aprire nel browser predefinito. */
-const SITI_ESTERNI = new Set(['www.gesacom.it', 'github.com', 'platform.claude.com', 'www.gnu.org']);
-/* La sessione di rete usata solo per Anthropic: separata da quella della finestra, senza dati salvati su disco. */
+const SITI_ESTERNI = new Set(['www.gesacom.it', 'github.com', 'platform.claude.com', 'aistudio.google.com', 'platform.openai.com', 'www.gnu.org']);
+/* La sessione di rete usata solo per i servizi di lettura: separata da quella della finestra, senza dati salvati su disco. */
 const SESSIONE_API = 'ordine-rapido-anthropic';
 const TUTTA_LA_RETE = ['http', 'https', 'ws', 'wss'].map(protocollo => protocollo + '://*/*');
 
@@ -78,8 +79,8 @@ function preparaRete(): void {
   session.defaultSession.webRequest.onBeforeRequest({ urls: TUTTA_LA_RETE }, (_dettagli, prosegui) => { prosegui({ cancel: true }); });
   /* Niente fotocamera, microfono, posizione o notifiche: l'app non ne ha bisogno. */
   session.defaultSession.setPermissionRequestHandler((_contenuto, permesso, risposta) => { risposta(permesso === 'clipboard-sanitized-write'); });
-  /* Dalla sessione dedicata si raggiunge un solo indirizzo: quello di Anthropic. */
-  sessioneApi().webRequest.onBeforeRequest({ urls: TUTTA_LA_RETE }, (dettagli, prosegui) => { prosegui({ cancel: !dettagli.url.startsWith(API + '/') }); });
+  /* Dalla sessione dedicata si raggiungono solo gli indirizzi dei servizi di lettura, uno per servizio. */
+  sessioneApi().webRequest.onBeforeRequest({ urls: TUTTA_LA_RETE }, (dettagli, prosegui) => { prosegui({ cancel: !allowedUrl(dettagli.url) }); });
 }
 
 const invia: Send = (url, richiesta) => {
@@ -132,25 +133,26 @@ function immagini(v: unknown): EncodedImage[] {
 function preparaPonte(cassaforte: KeyVault, archivi: ArchiveFiles): void {
   const letture = new Map<string, AbortController>();
 
-  rispondi<KeyState>(CHANNEL.keyState, () => cassaforte.state());
-  rispondi<KeyVerified>(CHANNEL.keyVerify, async (chiave, ricorda) => {
-    const candidata = (typeof chiave === 'string' ? chiave.trim() : '') || cassaforte.get();
+  const servizio = (v: unknown): ProviderId => { if (!isProviderId(v)) throw new AppError('api_invalid'); return v; };
+  rispondi<KeyStates>(CHANNEL.keyState, () => cassaforte.states());
+  rispondi<KeyVerified>(CHANNEL.keyVerify, async (fornitore, chiave, ricorda) => {
+    const id = servizio(fornitore), candidata = (typeof chiave === 'string' ? chiave.trim() : '') || cassaforte.get(id);
     if (!keyLooksValid(candidata)) throw new AppError('bad_key_format');
     /* l'elenco dei modelli non consuma credito: serve a provare la chiave e a proporre i modelli disponibili */
-    const models = await listModels(invia, candidata);
-    cassaforte.set(candidata, ricorda === true);
-    return { models, state: cassaforte.state() };
+    const models = await PROVIDERS[id].listModels(invia, candidata, false);
+    cassaforte.set(id, candidata, ricorda === true);
+    return { models, state: cassaforte.states() };
   });
-  rispondi<KeyState>(CHANNEL.keyRemember, ricorda => { cassaforte.persist(ricorda === true); return cassaforte.state(); });
-  rispondi<KeyState>(CHANNEL.keyForget, () => { cassaforte.forget(); return cassaforte.state(); });
+  rispondi<KeyStates>(CHANNEL.keyRemember, ricorda => { cassaforte.persist(ricorda === true); return cassaforte.states(); });
+  rispondi<KeyStates>(CHANNEL.keyForget, fornitore => { cassaforte.forget(servizio(fornitore)); return cassaforte.states(); });
 
-  rispondi<unknown>(CHANNEL.readAsk, async (id, modello, richiesta, allegati) => {
-    if (typeof id !== 'string' || typeof richiesta !== 'string' || typeof modello !== 'string' || !/^[A-Za-z0-9._:-]{1,100}$/.test(modello)) throw new AppError('api_invalid');
-    const chiave = cassaforte.get();
+  rispondi<unknown>(CHANNEL.readAsk, async (id, fornitore, modello, richiesta, allegati) => {
+    if (typeof id !== 'string' || typeof richiesta !== 'string' || typeof modello !== 'string' || !/^[A-Za-z0-9._:\/-]{1,100}$/.test(modello)) throw new AppError('api_invalid');
+    const quale = servizio(fornitore), chiave = cassaforte.get(quale);
     if (!chiave) throw new AppError('no_key');
     const controllo = new AbortController();
     letture.set(id, controllo);
-    try { return await askJson(invia, chiave, modello, richiesta, immagini(allegati), controllo.signal); }
+    try { return await PROVIDERS[quale].askJson(invia, chiave, modello, richiesta, immagini(allegati), controllo.signal, false); }
     finally { letture.delete(id); }
   });
   ipcMain.on(CHANNEL.readStop, (evento, id: unknown) => {

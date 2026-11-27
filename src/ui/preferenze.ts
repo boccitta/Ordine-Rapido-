@@ -27,7 +27,8 @@ export function loadUi(): void {
     const saved = JSON.parse(localStorage.getItem(UI_KEY) || '{}') || {};
     S.allCols = saved.allCols === true;
     S.skinChoice = saved.skin === 'dark' || saved.skin === 'light' ? saved.skin : '';
-    S.readerChoice = saved.reader === 'local' || saved.reader === 'claude' ? saved.reader : '';
+    /* «claude» era la scelta di una versione precedente, quando il servizio era uno solo */
+    S.readerChoice = saved.reader === 'local' || saved.reader === 'auto' || saved.reader === 'ai' ? saved.reader : saved.reader === 'claude' ? 'ai' : '';
     S.setupHidden = saved.setupHidden === true;
   } catch { /* preferenze illeggibili: si usano quelle predefinite */ }
 }

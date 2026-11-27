@@ -7,6 +7,7 @@
  * Software libero distribuito con licenza GNU General Public License versione 3 (GPL-3.0-only),
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
+import { ratio } from '../simile.ts';
 import { bare, cellNumber } from './testo.ts';
 import type { Cell, Line } from './testo.ts';
 
@@ -20,9 +21,17 @@ export function emptyReadRow(): ReadRow {
   return { cod_articolo: null, cod_cliente: null, ean: null, descrizione: '', um: null, colli: null, quantita: null, prezzo: null, sconti: [], omaggio: false, prezzo_netto: null, totale: null, nota: null };
 }
 
-type Field = 'riga' | 'ean' | 'pzcollo' | 'cod_cliente' | 'cod_articolo' | 'articolo' | 'descrizione' | 'um' | 'colli' | 'quantita'
+export type Field = 'riga' | 'ean' | 'pzcollo' | 'cod_cliente' | 'cod_articolo' | 'articolo' | 'descrizione' | 'um' | 'colli' | 'quantita'
   | 'netto' | 'sconto' | 'prezzo' | 'totale' | 'iva' | 'nota' | 'altro';
-interface Column { field: Field; x0: number; x1: number }
+export const FIELDS: readonly Field[] = ['riga', 'ean', 'pzcollo', 'cod_cliente', 'cod_articolo', 'articolo', 'descrizione', 'um', 'colli', 'quantita', 'netto', 'sconto', 'prezzo', 'totale', 'iva', 'nota', 'altro'];
+/** Una colonna della tabella: che cosa contiene, dove sta e il nome scritto in intestazione (ridotto all'osso). */
+export interface Column { field: Field; x0: number; x1: number; t: string }
+/**
+ * Un formato di tabella imparato dagli ordini già esportati di un cliente: i nomi delle colonne, nell'ordine
+ * in cui compaiono, e per ognuno il campo che contiene. Vale più delle regole generali.
+ */
+export interface Format { firma: string[]; colonne: Record<string, string> }
+type Names = Readonly<Record<string, string>> | null;
 
 /*
  * Come i clienti chiamano le colonne nei loro ordini. Ogni nome deve corrispondere per intero: è questo che permette
@@ -47,17 +56,29 @@ const HEAD: readonly (readonly [Field, RegExp])[] = [
   ['nota', /^(note|nota|annotazioni|osservazioni|note riga)$/],
   ['descrizione', /^(descrizione|descr|desc|prodotto|denominazione|merce)( articolo| prodotto| merce| art)?$|^art\w* descr\w*$/]
 ];
-function fieldOf(text: string): Field | null {
+const isField = (v: unknown): v is Field => typeof v === 'string' && FIELDS.indexOf(v as Field) >= 0;
+/** Il nome imparato più simile a quello scritto: uguale, oppure con poche lettere diverse (le foto ne sbagliano qualcuna). */
+export function learnedName(names: Names, b: string): string | null {
+  if (!names || !b) return null;
+  if (Object.prototype.hasOwnProperty.call(names, b)) return b;
+  let best: string | null = null, bestR = 0.8;
+  for (const k in names) { if (k.length < 3) continue; const r = ratio(k, b); if (r >= bestR) { best = k; bestR = r; } }
+  return best;
+}
+/** Il campo di un nome di colonna: prima quello imparato dal cliente, poi le regole generali. */
+export function fieldOf(text: string, names: Names = null): Field | null {
   const b = bare(text);
   if (!b) return null;
+  const k = learnedName(names, b), learned = k && names ? names[k] : null;
+  if (isField(learned)) return learned;
   for (const [f, re] of HEAD) if (re.test(b)) return f;
   return null;
 }
 
 /** Divide un'intestazione che contiene più nomi di colonna, dando a ognuno la sua parte di larghezza. */
-function splitHead(c: Cell): Column[] | null {
-  const whole = fieldOf(c.s);
-  if (whole) return [{ field: whole, x0: c.x0, x1: c.x1 }];
+function splitHead(c: Cell, names: Names = null): Column[] | null {
+  const whole = fieldOf(c.s, names);
+  if (whole) return [{ field: whole, x0: c.x0, x1: c.x1, t: bare(c.s) }];
   /* un segno da solo, come «%», resta attaccato alla parola che lo precede */
   const words: string[] = [];
   for (const w of c.s.split(/\s+/).filter(Boolean)) {
@@ -75,10 +96,10 @@ function splitHead(c: Cell): Column[] | null {
     for (let start = 0; start < end; start++) {
       const before = start === 0 ? [] : best[start];
       if (!before) continue;
-      const f = fieldOf(words.slice(start, end).join(' '));
+      const piece = words.slice(start, end).join(' '), f = fieldOf(piece, names);
       if (!f) continue;
       const a = at[start] as number, b = (at[end - 1] as number) + (words[end - 1] as string).length;
-      const cand = before.concat([{ field: f, x0: c.x0 + a * unit, x1: c.x0 + b * unit }]);
+      const cand = before.concat([{ field: f, x0: c.x0 + a * unit, x1: c.x0 + b * unit, t: bare(piece) }]);
       const cur = best[end];
       if (!cur || cand.length < cur.length) best[end] = cand;
     }
@@ -86,27 +107,56 @@ function splitHead(c: Cell): Column[] | null {
   return best[words.length] || null;
 }
 
-/** Le colonne di una riga di intestazione; null se la riga non è l'intestazione di una tabella d'ordine. */
-function headerOf(l: Line): Column[] | null {
-  if (l.cells.length < 2 && !(l.cells[0] && /\s/.test(l.cells[0].s))) return null;
+/**
+ * Le colonne di una riga, se fosse un'intestazione: le celle con un nome di colonna riconosciuto (o imparato)
+ * diventano colonne con il loro campo, le altre restano colonne «altro». `known` dice quante sono riconosciute.
+ */
+export function headerColumns(l: Line, names: Names = null): { cols: Column[]; known: number } {
   const cols: Column[] = [];
   let known = 0;
   for (const c of l.cells) {
-    const parts = splitHead(c);
+    const parts = splitHead(c, names);
     if (parts) { known += parts.length; for (const part of parts) cols.push(part); }
-    else cols.push({ field: 'altro', x0: c.x0, x1: c.x1 });
+    else cols.push({ field: 'altro', x0: c.x0, x1: c.x1, t: bare(c.s) });
   }
+  return { cols, known };
+}
+/** true se le colonne bastano a una tabella d'ordine: qualcosa che dica l'articolo e qualcosa che dica quanto. */
+function orderTable(cols: readonly Column[]): boolean {
   const has = (...fs: Field[]) => cols.some(c => fs.indexOf(c.field) >= 0);
-  if (known < 2 || known < cols.length / 2) return null;
-  if (!has('cod_articolo', 'cod_cliente', 'descrizione', 'articolo', 'ean') || !has('colli', 'quantita')) return null;
+  return has('cod_articolo', 'cod_cliente', 'descrizione', 'articolo', 'ean') && has('colli', 'quantita');
+}
+/** Quanta parte dei nomi di un formato imparato si ritrova in una riga di intestazione. */
+function formatShare(f: Format, cols: readonly Column[]): number {
+  if (!f.firma.length) return 0;
+  let n = 0;
+  for (const name of f.firma) if (cols.some(c => c.t === name || (name.length >= 3 && ratio(c.t, name) >= 0.8))) n++;
+  return n / f.firma.length;
+}
+
+/**
+ * Le colonne di una riga di intestazione; null se la riga non è l'intestazione di una tabella d'ordine.
+ * Prima si provano i formati imparati (vince quello che si ritrova meglio), poi le regole generali.
+ */
+function headerOf(l: Line, formats: readonly Format[]): { cols: Column[]; format: number } | null {
+  if (l.cells.length < 2 && !(l.cells[0] && /\s/.test(l.cells[0].s))) return null;
+  let best: { cols: Column[]; format: number } | null = null, bestShare = 0.7;
+  formats.forEach((f, i) => {
+    const { cols } = headerColumns(l, f.colonne), share = formatShare(f, cols);
+    if (share >= bestShare && orderTable(cols)) { best = { cols, format: i }; bestShare = share; }
+  });
+  if (best) return best;
+  const { cols, known } = headerColumns(l);
+  if (known < 2 || known < cols.length / 2 || !orderTable(cols)) return null;
   /* «Articolo» da solo è la descrizione, se una colonna per la descrizione non c'è; altrimenti è il codice */
+  const has = (f: Field) => cols.some(c => c.field === f);
   for (const c of cols) if (c.field === 'articolo') c.field = has('descrizione') ? (has('cod_articolo') ? 'altro' : 'cod_articolo') : 'descrizione';
-  return cols;
+  return { cols, format: -1 };
 }
 
 const overlap = (a: { x0: number; x1: number }, b: { x0: number; x1: number }) => Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
 /** La colonna sotto cui sta un pezzo di testo: quella con cui si sovrappone di più, oppure la più vicina se è a un passo. */
-function columnAt(cols: readonly Column[], c: { x0: number; x1: number }, near: number): number {
+export function columnAt(cols: readonly Column[], c: { x0: number; x1: number }, near: number): number {
   let best = -1, bestO = 0;
   cols.forEach((col, k) => { const o = overlap(col, c); if (o > bestO) { bestO = o; best = k; } });
   if (best >= 0) return best;
@@ -115,15 +165,18 @@ function columnAt(cols: readonly Column[], c: { x0: number; x1: number }, near: 
   return best;
 }
 
-const NUMERIC: Readonly<Partial<Record<Field, 1>>> = { colli: 1, pzcollo: 1, quantita: 1, prezzo: 1, sconto: 1, netto: 1, totale: 1, iva: 1, riga: 1 };
+export const NUMERIC: Readonly<Partial<Record<Field, 1>>> = { colli: 1, pzcollo: 1, quantita: 1, prezzo: 1, sconto: 1, netto: 1, totale: 1, iva: 1, riga: 1 };
 const GIFT = /\b(omaggio|omaggi|sconto merce|sc merce|in regalo|gratis|gratuit[oaie])\b/;
 const TOTALS = /^(tot|totale|totali|imponibile|importo merce|totale merce|segue|riporto|a riportare)\b/;
 /** Un codice è una parola sola con almeno una cifra, oppure breve e tutta maiuscola: «Totale colli» non lo è. */
-function looksLikeCode(s: string): boolean { return /^[A-Za-z0-9][A-Za-z0-9._\/-]{1,24}$/.test(s) && (/\d/.test(s) || s.length <= 10); }
+export function looksLikeCode(s: string): boolean { return /^[A-Za-z0-9][A-Za-z0-9._\/-]{1,24}$/.test(s) && (/\d/.test(s) || s.length <= 10); }
 
-interface Piece { s: string; x0: number; x1: number; n?: number }
-/** Una riga di dati incolonnata sotto l'intestazione; null se non è una riga d'ordine. */
-function rowOf(l: Line, cols: readonly Column[], near: number): ReadRow | null {
+export interface Piece { s: string; x0: number; x1: number; n?: number }
+/**
+ * Mette ogni pezzo di testo di una riga sotto la sua colonna. Restituisce null se la riga è una frase
+ * che attraversa la tabella (testo scritto sotto, non una riga d'ordine).
+ */
+export function assign(l: Line, cols: readonly Column[], near: number): { got: Piece[][]; loose: string[] } | null {
   const got: Piece[][] = cols.map(() => []), loose: string[] = [];
   /* la colonna in cui prosegue il testo di una cella divisa: la descrizione, se la tabella ne ha una */
   const descCol = cols.findIndex(c => c.field === 'descrizione');
@@ -161,6 +214,21 @@ function rowOf(l: Line, cols: readonly Column[], near: number): ReadRow | null {
     const rest = pieces.splice(1);
     if (k < descCol) desc.unshift(...rest); else desc.push(...rest);
   });
+  return { got, loose };
+}
+
+/** Il valore numerico di una colonna: con più pezzi (un segno, una cifra corretta a penna) vale l'ultimo numero scritto. */
+export function columnNumber(pieces: readonly Piece[]): number | null {
+  let n: number | null = null;
+  for (const p of pieces) { const v = cellNumber(p); if (v !== null) n = v; }
+  return n;
+}
+
+/** Una riga di dati incolonnata sotto l'intestazione; null se non è una riga d'ordine. */
+function rowOf(l: Line, cols: readonly Column[], near: number): ReadRow | null {
+  const a = assign(l, cols, near);
+  if (!a) return null;
+  const { got, loose } = a;
   const r = emptyReadRow();
   let pz: number | null = null, anyNumber = false;
   const notes: string[] = [];
@@ -168,9 +236,7 @@ function rowOf(l: Line, cols: readonly Column[], near: number): ReadRow | null {
     const pieces = got[k] as Piece[];
     if (!pieces.length) return;
     const text = pieces.map(p => p.s).join(' ').trim(), first = pieces[0] as Piece;
-    let n = pieces.length === 1 ? cellNumber(first) : null;
-    /* più pezzi sotto una colonna di numeri (un segno, una cifra corretta a penna): vale l'ultimo numero scritto */
-    if (pieces.length > 1 && NUMERIC[col.field]) for (const p of pieces) { const v = cellNumber(p); if (v !== null) n = v; }
+    const n = pieces.length === 1 ? cellNumber(first) : NUMERIC[col.field] ? columnNumber(pieces) : null;
     switch (col.field) {
       case 'cod_articolo': if (r.cod_articolo === null && looksLikeCode(text)) r.cod_articolo = text; else notes.push(text); break;
       case 'cod_cliente': if (r.cod_cliente === null && looksLikeCode(text)) r.cod_cliente = text; else notes.push(text); break;
@@ -202,21 +268,29 @@ export interface TableResult {
   used: Record<number, 1>;
   /** Le righe (posizione in `rows`) trattate come omaggio solo perché hanno il prezzo ma né netto né importo. */
   guessedGifts: number[];
+  /** I formati imparati (posizione nell'elenco ricevuto) usati per leggere le tabelle. */
+  formats: number[];
+}
+
+/** Quanto può stare lontano un valore dalla sua colonna: mezza larghezza della colonna più stretta; in un foglio, niente. */
+export function nearFor(cols: readonly Column[], kind: 'grid' | 'page' | 'text'): number {
+  return kind === 'grid' ? 0 : Math.max(1, Math.min.apply(null, cols.map(c => c.x1 - c.x0)) / 2);
 }
 
 /**
  * Cerca nelle righe di una fonte le tabelle d'ordine e ne ricava le righe. Una tabella finisce alla riga dei totali
- * e può ricominciare a ogni pagina, dove l'intestazione è ripetuta.
+ * e può ricominciare a ogni pagina, dove l'intestazione è ripetuta. `formats` sono i formati imparati dagli ordini
+ * già esportati: quando un'intestazione corrisponde a uno di loro, i suoi nomi di colonna valgono più delle regole generali.
  */
-export function readTables(lines: readonly Line[], kind: 'grid' | 'page' | 'text'): TableResult {
-  const rows: ReadRow[] = [], used: Record<number, 1> = {}, guessedGifts: number[] = [];
+export function readTables(lines: readonly Line[], kind: 'grid' | 'page' | 'text', formats: readonly Format[] = []): TableResult {
+  const rows: ReadRow[] = [], used: Record<number, 1> = {}, guessedGifts: number[] = [], usedFormats: number[] = [];
   let cols: Column[] | null = null, near = 0;
   lines.forEach((l, i) => {
-    const head = headerOf(l);
+    const head = headerOf(l, formats);
     if (head) {
-      cols = head; used[i] = 1;
-      /* quanto può stare lontano un valore dalla sua colonna: mezza larghezza della colonna più stretta; in un foglio, niente */
-      near = kind === 'grid' ? 0 : Math.max(1, Math.min.apply(null, head.map(c => c.x1 - c.x0)) / 2);
+      cols = head.cols; used[i] = 1;
+      near = nearFor(head.cols, kind);
+      if (head.format >= 0 && usedFormats.indexOf(head.format) < 0) usedFormats.push(head.format);
       return;
     }
     if (!cols) return;
@@ -230,5 +304,5 @@ export function readTables(lines: readonly Line[], kind: 'grid' | 'page' | 'text
   if (priced >= 2 && priced >= rows.length / 2) rows.forEach((r, i) => {
     if (!r.omaggio && r.prezzo !== null && r.totale === null && r.prezzo_netto === null) { r.omaggio = true; guessedGifts.push(i); }
   });
-  return { rows, used, guessedGifts };
+  return { rows, used, guessedGifts, formats: usedFormats };
 }

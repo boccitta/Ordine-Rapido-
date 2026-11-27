@@ -1,13 +1,13 @@
 /*
  * Ordine Rapido - il ponte tra la finestra e il processo principale dell'app desktop.
  * È l'elenco completo di quello che la pagina può chiedere: nient'altro esce dalla finestra.
- * La chiave API entra dal ponte una volta sola, quando l'utente la scrive, e non torna più indietro.
+ * Le chiavi API entrano dal ponte una volta sola, quando l'utente le scrive, e non tornano più indietro.
  *
  * Copyright (C) 2026 Roberto Murenu
  * Software libero distribuito con licenza GNU General Public License versione 3 (GPL-3.0-only),
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
-import type { EncodedImage, Model } from '../anthropic/protocollo.ts';
+import type { EncodedImage, Model, ProviderId } from '../ia/indice.ts';
 import type { Kind } from '../core/tipi.ts';
 
 /** Il nome con cui il ponte compare nella pagina: window.ordineRapido. */
@@ -39,7 +39,9 @@ export interface KeyState {
   /** false se il sistema non offre un portachiavi con cui cifrarla. */
   canEncrypt: boolean;
 }
-export interface KeyVerified { models: Model[]; state: KeyState }
+/** Lo stato delle chiavi di tutti i servizi. */
+export type KeyStates = Record<ProviderId, KeyState>;
+export interface KeyVerified { models: Model[]; state: KeyStates }
 
 /** Un archivio così come sta su disco: una riga compatta per elemento, più la data dell'ultimo caricamento. */
 export interface StoredArchive { rows: string[]; at: string }
@@ -47,14 +49,15 @@ export interface StoredArchives { art: StoredArchive | null; cli: StoredArchive 
 
 export interface DesktopBridge {
   key: {
-    state(): Promise<Reply<KeyState>>;
-    /** Prova la chiave con Anthropic e, se è valida, la tiene. Con chiave vuota riprova quella già salvata. */
-    verify(key: string, remember: boolean): Promise<Reply<KeyVerified>>;
-    remember(remember: boolean): Promise<Reply<KeyState>>;
-    forget(): Promise<Reply<KeyState>>;
+    state(): Promise<Reply<KeyStates>>;
+    /** Prova la chiave con il servizio e, se è valida, la tiene. Con chiave vuota riprova quella già salvata. */
+    verify(provider: ProviderId, key: string, remember: boolean): Promise<Reply<KeyVerified>>;
+    /** Vale per le chiavi di tutti i servizi. */
+    remember(remember: boolean): Promise<Reply<KeyStates>>;
+    forget(provider: ProviderId): Promise<Reply<KeyStates>>;
   };
   read: {
-    ask(id: string, model: string, prompt: string, images: EncodedImage[]): Promise<Reply<unknown>>;
+    ask(id: string, provider: ProviderId, model: string, prompt: string, images: EncodedImage[]): Promise<Reply<unknown>>;
     stop(id: string): void;
   };
   archives: {

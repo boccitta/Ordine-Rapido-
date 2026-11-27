@@ -12,6 +12,7 @@ import { buildSheet, buildTable, fileName, toCp1252, toDelimited } from '../core
 import { errorCode } from '../core/tipi.ts';
 import { $, icon, status } from './dom.ts';
 import { loadXlsx } from './librerie.ts';
+import { learnFromExport } from './ricette.ts';
 import { didExport } from './schermate.ts';
 import { S, platform } from './stato.ts';
 
@@ -46,7 +47,7 @@ function guard(): boolean {
 }
 
 async function copyText(text: string, okMsg: string): Promise<void> {
-  try { await navigator.clipboard.writeText(text); expStatus(okMsg, 'ok'); didExport(); }
+  try { await navigator.clipboard.writeText(text); expStatus(okMsg + learnFromExport(), 'ok'); didExport(); }
   catch {
     const range = document.createRange(); range.selectNodeContents($('preview'));
     const sel = window.getSelection();
@@ -96,7 +97,7 @@ export function wireExport(): void {
     try {
       const file = await buildFile();
       await p.files.save(file.name, file.data, file.type);
-      expStatus((p.kind === 'claude' ? 'File salvato: ' : 'File scaricato: ') + file.name, 'ok'); didExport();
+      expStatus((p.kind === 'claude' ? 'File salvato: ' : 'File scaricato: ') + file.name + '.' + learnFromExport(), 'ok'); didExport();
     } catch (e) {
       const code = errorCode(e);
       if (code === 'declined') expStatus('Salvataggio annullato.', '');

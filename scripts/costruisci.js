@@ -42,7 +42,9 @@ function costruisci() {
   html = unaVolta(html, '</body>', blocchi + '\n</body>');
   html = unaVolta(html, '<html lang="it">', '<!-- Versione ' + versione + ' in un solo file, costruita da scripts/costruisci.js. Librerie incluse e relative licenze: vedi THIRD_PARTY_NOTICES.md nella repository. -->\n<html lang="it">');
 
-  if (/(src|href)="(?!https:\/\/www\.gesacom\.it|#)[^"]+"/.test(html.replace(/<script type="application\/octet-stream"[\s\S]*?<\/script>/g, '')))
+  /* restano ammessi solo i collegamenti da aprire con un clic (manuale del gestionale, pagine per creare le chiavi API):
+     nessun file viene caricato da fuori */
+  if (/\bsrc="[^"]+"|\bhref="(?!https:\/\/|#)[^"]+"/.test(html.replace(/<script type="application\/octet-stream"[\s\S]*?<\/script>/g, '')))
     throw new Error('nel file unico è rimasto un riferimento a un file esterno');
 
   const dist = path.join(ROOT, 'dist');

@@ -18,25 +18,25 @@ Le correzioni di sicurezza arrivano solo sull'ultima versione pubblicata.
 
 - **Nessun server.** L'app gira sul dispositivo di chi la usa. Non esistono un servizio centrale, un account o una raccolta di statistiche.
 - **La lettura sul dispositivo non usa la rete.** Excel, PDF, messaggi e foto vengono letti da codice che gira nella pagina; il riconoscimento dei caratteri gira in WebAssembly, in un processo separato, con modelli inclusi nell'app. Per questo la Content Security Policy permette `'wasm-unsafe-eval'`: riguarda solo l'esecuzione di WebAssembly, non di codice JavaScript ricavato da testo.
-- **Un solo indirizzo di rete.** La pagina dichiara una Content Security Policy che permette collegamenti soltanto verso `api.anthropic.com`. Nell'app desktop dalla finestra non parte nessuna richiesta di rete, nemmeno verso Anthropic: a parlare con il servizio è il processo principale, da una sessione di rete dedicata da cui si raggiunge solo quell'indirizzo. La finestra apre nel browser solo collegamenti verso un elenco di siti previsti e rifiuta le richieste di fotocamera, microfono, posizione e notifiche.
+- **Tre indirizzi di rete, uno per servizio.** La pagina dichiara una Content Security Policy che permette collegamenti soltanto verso `api.anthropic.com`, `generativelanguage.googleapis.com` e `api.openai.com`, e il codice ne contatta solo uno: quello del servizio scelto, se c'è la sua chiave. Con la lettura sul dispositivo non ne contatta nessuno. Nell'app desktop dalla finestra non parte nessuna richiesta di rete: a parlare con il servizio è il processo principale, da una sessione di rete dedicata da cui si raggiungono solo quei tre indirizzi. La finestra apre nel browser solo collegamenti verso un elenco di siti previsti e rifiuta le richieste di fotocamera, microfono, posizione e notifiche.
 - **Che cosa esce.** Solo quando si usa la lettura automatica: il testo e le immagini del documento dell'ordine e, per i suggerimenti di abbinamento, le righe non trovate con al massimo dieci articoli candidati ciascuna. Gli archivi interi non vengono mai inviati.
-- **Chiave API.** Non entra negli archivi, nelle copie di sicurezza né nel file esportato, e viene inviata soltanto ad Anthropic. Nell'app desktop è custodita dal processo principale: la finestra la consegna una volta e non può più rileggerla; se scegli di ricordarla viene scritta su disco cifrata dal sistema operativo (protezione dati di Windows, Portachiavi di macOS, portachiavi di Linux).
+- **Chiavi API.** Una per servizio. Non entrano negli archivi, nelle copie di sicurezza né nel file esportato, e ognuna viene inviata soltanto al suo servizio. Nell'app desktop sono custodite dal processo principale, in file separati: la finestra consegna una chiave una volta e non può più rileggerla; se scegli di ricordarla viene scritta su disco cifrata dal sistema operativo (protezione dati di Windows, Portachiavi di macOS, portachiavi di Linux).
 - **Finestra isolata.** Nell'app desktop la pagina non ha accesso a Node, al disco o al sistema: può chiedere al processo principale solo le operazioni di un elenco chiuso (chiave, lettura, archivi), e il processo principale risponde solo alla pagina dell'app.
 - **Contenuti non fidati.** Tutto ciò che arriva da un documento o da un archivio viene mostrato come testo, mai interpretato come HTML. La libreria dei PDF è usata con l'esecuzione di codice dai documenti disattivata.
 - **Il modello non decide i codici.** La risposta del modello è trattata come un dato da controllare: un codice entra nel file solo se esiste nell'archivio caricato dall'utente.
 
 ## Limiti da conoscere
 
-### Gli archivi sono salvati in chiaro; la chiave API è cifrata solo nell'app desktop
+### Gli archivi sono salvati in chiaro; le chiavi API sono cifrate solo nell'app desktop
 
 Gli archivi (articoli, clienti, mandanti) sono salvati senza cifratura: chiunque abbia accesso al tuo computer con il tuo utente può leggerli. Lo stesso vale per l'ordine in lavorazione, che l'app salva a ogni modifica per non fartelo perdere: resta sul dispositivo finché non premi **Nuovo ordine**.
 
-La chiave API dipende da come usi l'app:
+Le chiavi API dipendono da come usi l'app:
 
 - **app desktop**: è cifrata dal sistema operativo con le credenziali del tuo utente. La protegge da chi copia i file o il disco, non da un programma che gira con il tuo utente. Su un Linux senza portachiavi l'app non la scrive su disco: va inserita a ogni avvio;
 - **versione portatile** (`Ordine-Rapido.html`): un browser non offre un posto protetto, quindi la chiave resta in chiaro tra i dati del browser.
 
-Non usare l'app con la tua chiave su un computer condiviso; in quel caso togli la spunta da «Ricorda la chiave su questo dispositivo». Nella Console di Anthropic conviene creare una chiave dedicata a Ordine Rapido e impostare un limite di spesa: se venisse copiata, la puoi revocare senza toccare le altre.
+Non usare l'app con le tue chiavi su un computer condiviso; in quel caso togli la spunta da «Ricorda le chiavi su questo dispositivo». Presso ogni servizio (Anthropic, Google, OpenAI) conviene creare una chiave dedicata a Ordine Rapido e impostare un limite di spesa: se venisse copiata, la puoi revocare senza toccare le altre.
 
 ### La versione portatile condivide lo spazio del browser
 

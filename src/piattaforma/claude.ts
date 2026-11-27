@@ -7,11 +7,10 @@
  * Software libero distribuito con licenza GNU General Public License versione 3 (GPL-3.0-only),
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
-import { MODELS } from '../anthropic/protocollo.ts';
 import { KINDS, archiveDate, archiveItems, emptyArchive, pack } from '../core/anagrafiche.ts';
 import { AppError, errorCode } from '../core/tipi.ts';
 import type { Archive, Item } from '../core/tipi.ts';
-import { aliasFrom, aliasRows, browserStore, unpackInto } from './browser.ts';
+import { aiState, aliasFrom, aliasRows, browserStore, loadAiSaved, unpackInto } from './browser.ts';
 import type { AiAccess, ArchiveStore, FileSaver, Platform, Progress, Reader, StoreMode } from './tipi.ts';
 
 /* Quello che la pagina offre quando gira dentro Claude: solo le parti che l'app usa. */
@@ -120,13 +119,15 @@ export function claudePlatform(caps: ClaudeCapabilities): Platform {
     try { sample = await caps.use('sample') as Reader | null; } catch { sample = null; }
     try { downloads = await caps.use('downloads') as ClaudeDownloads | null; } catch { downloads = null; }
   })();
-  const firstModel = MODELS[0] ? MODELS[0][0] : '';
+  /* dentro Claude legge Claude, attraverso la pagina: niente chiavi e niente altri servizi */
   const ai: AiAccess = {
     needsKey: false,
-    state: () => ({ hasKey: false, keyText: '', keyHint: '', remember: false, model: firstModel, models: [] }),
+    available: ['anthropic'],
+    state: () => ({ ...aiState(loadAiSaved(), () => ({ has: false, text: '', hint: '' })), provider: 'anthropic' }),
     reader: () => sample,
     verify: async () => 'session',
     forget: async () => {},
+    setProvider: () => {},
     setModel: () => {},
     setRemember: async () => {}
   };

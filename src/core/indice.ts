@@ -18,7 +18,10 @@ export {
 } from './anagrafiche.ts';
 export type { ColumnMap } from './anagrafiche.ts';
 export { buildIndex, linkOf, aliasKeys, matchRow, search, words, matchClient, matchMandante } from './abbinamento.ts';
-export { readLocal, fromGrid, fromItems, fromText, findDate, readNumber } from './lettura/indice.ts';
+export { readLocal, recipeHints, fromGrid, fromItems, fromText, findDate, readNumber } from './lettura/indice.ts';
+export { RECIPE, aliasCount, clearLearned, discoverFormat, findRecipe, formatsFor, learnRecipe, recipes } from './ricette.ts';
+export type { Recipe, Learned } from './ricette.ts';
+export { distance, ratio, approxContains } from './simile.ts';
 export type { LocalAnswer, LocalContext, ReadRow, Source, Item, Line, Cell } from './lettura/indice.ts';
 export { COLS, colDef, isFixed, isNumeric, defaultProfile, mergeProfile, buildTable, buildSheet, toDelimited, toCp1252, fileName } from './tracciato.ts';
 export type { ColDef } from './tracciato.ts';

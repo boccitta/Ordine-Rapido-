@@ -1,8 +1,8 @@
 /*
  * Prove del processo principale dell'app desktop, senza avviare Electron: il codice vero di src/desktop/ viene
  * compilato sostituendo Electron con un simulacro, poi si chiamano i canali del ponte come farebbe la finestra.
- * Controllano le garanzie che contano: la chiave API non torna mai alla pagina e su disco è solo cifrata, dalla
- * finestra non parte nessuna richiesta di rete, si risponde solo alla pagina dell'app, gli archivi si salvano interi.
+ * Controllano le garanzie che contano: le chiavi API non tornano mai alla pagina e su disco sono solo cifrate, dalla
+ * finestra non parte nessuna richiesta di rete, si raggiungono solo i tre servizi di lettura, si risponde solo alla pagina dell'app, gli archivi si salvano interi.
  * La prova con Electron vero è test/desktop.js. Si eseguono con: npm run test:costruzione
  */
 import test from 'node:test';
@@ -15,7 +15,8 @@ import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const CHIAVE = 'sk-' + 'ant-chiave-di-prova-non-valida';
+const CHIAVE = 'sk-' + 'ant-chiave-di-prova-non-valida', CHIAVE_GOOGLE = 'AIza' + 'chiave-di-prova-non-valida', CHIAVE_OPENAI = 'sk-' + 'proj-chiave-di-prova-non-valida';
+const SENZA = { present: false, hint: '', stored: false, canEncrypt: true };
 const lavoro = fs.mkdtempSync(path.join(os.tmpdir(), 'ordine-rapido-principale-'));
 const dati = path.join(lavoro, 'dati');
 fs.mkdirSync(dati);
@@ -65,10 +66,20 @@ async function compila(sorgente, uscita) {
 }
 
 const risposta = (status, corpo) => ({ ok: status >= 200 && status < 300, status, json: async () => corpo });
-/* Il servizio di Anthropic, simulato: accetta solo la chiave di prova. */
+/* I tre servizi, simulati: ognuno accetta solo la sua chiave di prova. */
 function rete(url, init) {
   const u = new URL(url);
-  if (init.headers.authorization !== 'Bearer ' + CHIAVE) return Promise.resolve(risposta(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }));
+  if (u.hostname === 'generativelanguage.googleapis.com') {
+    if (init.headers['x-goog-api-key'] !== CHIAVE_GOOGLE) return Promise.resolve(risposta(400, { error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT' } }));
+    if (u.pathname === '/v1beta/models') return Promise.resolve(risposta(200, { models: [{ name: 'models/gemini-4-hydrogen', displayName: 'Gemini 4 Hydrogen', supportedGenerationMethods: ['generateContent'] }, { name: 'models/gemini-embedding-2', displayName: 'Embedding', supportedGenerationMethods: ['embedContent'] }] }));
+    if (u.pathname.endsWith(':generateContent')) return Promise.resolve(risposta(200, { candidates: [{ finishReason: 'STOP', content: { parts: [{ text: '{"righe":[{"descrizione":"G"}]}' }] } }] }));
+  }
+  if (u.hostname === 'api.openai.com') {
+    if (init.headers.authorization !== 'Bearer ' + CHIAVE_OPENAI) return Promise.resolve(risposta(401, { error: { message: 'Incorrect API key provided', type: 'invalid_request_error', code: 'invalid_api_key' } }));
+    if (u.pathname === '/v1/models') return Promise.resolve(risposta(200, { data: [{ id: 'gpt-6.2-sol' }, { id: 'gpt-6-image' }, { id: 'gpt-6.1-terra' }] }));
+    if (u.pathname === '/v1/responses') return Promise.resolve(risposta(200, { status: 'completed', output: [{ type: 'reasoning' }, { type: 'message', content: [{ type: 'output_text', text: '{"righe":[{"descrizione":"O"}]}' }] }] }));
+  }
+  if (u.hostname !== 'api.anthropic.com' || init.headers.authorization !== 'Bearer ' + CHIAVE) return Promise.resolve(risposta(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }));
   if (u.pathname === '/v1/models') return Promise.resolve(risposta(200, { data: [{ id: 'claude-sonnet-5-5', display_name: 'Claude Sonnet 5.5', lifecycle: 'active' }, { id: 'claude-vecchio-1', display_name: 'Vecchio', lifecycle: 'deprecated' }] }));
   if (u.pathname === '/v1/messages') return Promise.resolve(risposta(200, { stop_reason: 'end_turn', content: [{ type: 'text', text: 'Ecco:\n```json\n{"righe":[]}\n```' }] }));
   return Promise.resolve(risposta(404, {}));
@@ -99,7 +110,7 @@ test('finestra: isolata dalla pagina, con il solo ponte', () => {
   assert.equal(fermata, true, 'la finestra non naviga altrove');
 });
 
-test('rete: dalla finestra non parte nulla, dalla sessione dedicata si raggiunge solo Anthropic', () => {
+test('rete: dalla finestra non parte nulla, dalla sessione dedicata si raggiungono solo i tre servizi', () => {
   const decide = (sessione, url) => { let esito; E.sessioni.get(sessione).webRequest.regola({ url }, r => { esito = r.cancel; }); return esito; };
   assert.deepEqual(E.sessioni.get('finestra').webRequest.filtro.urls.sort(), ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*']);
   assert.equal(decide('finestra', 'https://api.anthropic.com/v1/models'), true, 'nemmeno Anthropic dalla finestra');
@@ -107,6 +118,9 @@ test('rete: dalla finestra non parte nulla, dalla sessione dedicata si raggiunge
   assert.equal(decide('ordine-rapido-anthropic', 'https://api.anthropic.com/v1/messages'), false);
   assert.equal(decide('ordine-rapido-anthropic', 'https://example.com/'), true);
   assert.equal(decide('ordine-rapido-anthropic', 'https://api.anthropic.com.esempio.it/v1/messages'), true, 'un nome che comincia allo stesso modo non basta');
+  assert.equal(decide('ordine-rapido-anthropic', 'https://api.openai.com/v1/responses'), false);
+  assert.equal(decide('ordine-rapido-anthropic', 'https://generativelanguage.googleapis.com/v1beta/models'), false);
+  assert.equal(decide('ordine-rapido-anthropic', 'https://googleapis.com/'), true);
   let concesso;
   E.sessioni.get('finestra').permessi(null, 'media', r => { concesso = r; });
   assert.equal(concesso, false, 'niente fotocamera né microfono');
@@ -125,14 +139,16 @@ test('ponte: si risponde solo alla pagina dell\'app', async () => {
 
 test('chiave: verificata con Anthropic, mai restituita, su disco solo cifrata', async () => {
   const file = path.join(dati, 'chiave-api.bin');
-  assert.deepEqual((await chiama('chiave:stato')).value, { present: false, hint: '', stored: false, canEncrypt: true });
-  assert.equal((await chiama('chiave:verifica', 'sk-ant-sbagliata', true)).code, 'bad_key');
-  assert.equal((await chiama('chiave:verifica', 'con spazi dentro', true)).code, 'bad_key_format');
-  assert.equal((await chiama('chiave:stato')).value.present, false, 'una chiave rifiutata non viene tenuta');
+  assert.deepEqual((await chiama('chiave:stato')).value, { anthropic: SENZA, gemini: SENZA, openai: SENZA });
+  assert.equal((await chiama('chiave:verifica', 'anthropic', 'sk-ant-sbagliata', true)).code, 'bad_key');
+  assert.equal((await chiama('chiave:verifica', 'anthropic', 'con spazi dentro', true)).code, 'bad_key_format');
+  assert.equal((await chiama('chiave:verifica', 'altro', CHIAVE, true)).code, 'api_invalid', 'solo i tre servizi previsti');
+  assert.equal((await chiama('chiave:stato')).value.anthropic.present, false, 'una chiave rifiutata non viene tenuta');
 
-  const esito = await chiama('chiave:verifica', '  ' + CHIAVE + '  ', true);
+  const esito = await chiama('chiave:verifica', 'anthropic', '  ' + CHIAVE + '  ', true);
   assert.deepEqual(esito.value.models, [['claude-sonnet-5-5', 'Claude Sonnet 5.5']], 'solo i modelli attivi');
-  assert.deepEqual(esito.value.state, { present: true, hint: CHIAVE.slice(-4), stored: true, canEncrypt: true });
+  assert.deepEqual(esito.value.state.anthropic, { present: true, hint: CHIAVE.slice(-4), stored: true, canEncrypt: true });
+  assert.deepEqual(esito.value.state.gemini, SENZA, 'ogni servizio ha la sua chiave');
   assert.ok(!JSON.stringify(esito).includes(CHIAVE), 'la chiave non torna alla pagina');
   assert.ok(fs.existsSync(file) && !fs.readFileSync(file).includes(CHIAVE), 'su disco la chiave è cifrata');
 
@@ -143,28 +159,58 @@ test('chiave: verificata con Anthropic, mai restituita, su disco solo cifrata', 
   assert.ok(!('anthropic-dangerous-direct-browser-access' in richiesta.init.headers), 'dal processo principale non serve l\'intestazione per le pagine');
   assert.deepEqual([richiesta.init.credentials, richiesta.init.cache], ['omit', 'no-store']);
 
-  assert.deepEqual((await chiama('chiave:ricorda', false)).value, { present: true, hint: CHIAVE.slice(-4), stored: false, canEncrypt: true });
+  assert.deepEqual((await chiama('chiave:ricorda', false)).value.anthropic, { present: true, hint: CHIAVE.slice(-4), stored: false, canEncrypt: true });
   assert.ok(!fs.existsSync(file), 'se non va ricordata il file sparisce, ma la chiave resta valida fino alla chiusura');
-  assert.equal((await chiama('chiave:ricorda', true)).value.stored, true);
-  assert.equal((await chiama('chiave:verifica', '', true)).ok, true, 'con il campo vuoto si riprova la chiave già salvata');
+  assert.equal((await chiama('chiave:ricorda', true)).value.anthropic.stored, true);
+  assert.equal((await chiama('chiave:verifica', 'anthropic', '', true)).ok, true, 'con il campo vuoto si riprova la chiave già salvata');
+});
+
+test('chiavi di Google e OpenAI: verificate con il loro servizio, elenco dei modelli adatti, file separati e cifrati', async () => {
+  assert.equal((await chiama('chiave:verifica', 'gemini', 'AIzasbagliata', true)).code, 'bad_key', 'Google risponde 400 a una chiave sbagliata: vale come chiave non valida');
+  const g = await chiama('chiave:verifica', 'gemini', CHIAVE_GOOGLE, true);
+  assert.deepEqual(g.value.models, [['gemini-4-hydrogen', 'Gemini 4 Hydrogen']], 'solo i modelli che generano testo');
+  const rg = E.richieste.filter(r => r.url.indexOf('generativelanguage') >= 0).pop();
+  assert.equal(rg.init.headers['x-goog-api-key'], CHIAVE_GOOGLE);
+  assert.ok(!rg.url.includes(CHIAVE_GOOGLE), 'la chiave di Google non va nell\'indirizzo');
+  assert.equal((await chiama('chiave:verifica', 'openai', 'sk-sbagliata', true)).code, 'bad_key');
+  const o = await chiama('chiave:verifica', 'openai', CHIAVE_OPENAI, true);
+  assert.deepEqual(o.value.models, [['gpt-6.2-sol', 'GPT-6.2 Sol'], ['gpt-6.1-terra', 'GPT-6.1 Terra']], 'senza i modelli che non leggono documenti, i consigliati per primi');
+  assert.deepEqual([o.value.state.anthropic.present, o.value.state.gemini.present, o.value.state.openai.present], [true, true, true]);
+  for (const [f, k] of [['chiave-gemini.bin', CHIAVE_GOOGLE], ['chiave-openai.bin', CHIAVE_OPENAI]]) assert.ok(fs.existsSync(path.join(dati, f)) && !fs.readFileSync(path.join(dati, f)).includes(k), f + ' cifrato');
+  assert.ok(!JSON.stringify([g, o]).includes(CHIAVE_GOOGLE) && !JSON.stringify([g, o]).includes(CHIAVE_OPENAI), 'le chiavi non tornano alla pagina');
+
+  assert.deepEqual(await chiama('lettura:chiedi', 'g1', 'gemini', 'gemini-4-hydrogen', 'Trascrivi in JSON', [{ media_type: 'image/jpeg', data: 'QUJD' }]), { ok: true, value: { righe: [{ descrizione: 'G' }] } });
+  const cg = JSON.parse(E.richieste.filter(r => r.url.endsWith(':generateContent')).pop().init.body);
+  assert.equal(cg.generationConfig.responseMimeType, 'application/json');
+  assert.deepEqual(cg.contents[0].parts.map(x => Object.keys(x)[0]), ['inline_data', 'text']);
+  assert.deepEqual(await chiama('lettura:chiedi', 'o1', 'openai', 'gpt-6.2-sol', 'Trascrivi in JSON', [{ media_type: 'image/jpeg', data: 'QUJD' }]), { ok: true, value: { righe: [{ descrizione: 'O' }] } });
+  const co = JSON.parse(E.richieste.filter(r => r.url.endsWith('/v1/responses')).pop().init.body);
+  assert.deepEqual([co.model, co.store, co.text.format.type], ['gpt-6.2-sol', false, 'json_object']);
+  assert.deepEqual(co.input[0].content.map(x => x.type), ['input_text', 'input_image']);
+  assert.ok(co.input[0].content[1].image_url.startsWith('data:image/jpeg;base64,'));
+
+  await chiama('chiave:rimuovi', 'gemini');
+  assert.deepEqual([fs.existsSync(path.join(dati, 'chiave-gemini.bin')), (await chiama('chiave:stato')).value.openai.present], [false, true], 'si toglie solo la chiave scelta');
+  await chiama('chiave:rimuovi', 'openai');
 });
 
 test('chiave: senza portachiavi non viene scritta; alla riapertura si rilegge quella cifrata', async () => {
   const { KeyVault } = await compila('src/desktop/chiave.ts', 'chiave.cjs');
+  const a = 'anthropic';
   /* questa compilazione porta con sé un simulacro proprio: è quello che la cassaforte interroga */
   const F = globalThis.__electronFinto;
   const dir = path.join(lavoro, 'cassaforte'), file = path.join(dir, 'chiave-api.bin');
   const prima = new KeyVault(dir);
-  prima.set(CHIAVE, true);
-  assert.equal(prima.state().stored, true);
+  prima.set(a, CHIAVE, true);
+  assert.equal(prima.states().anthropic.stored, true);
   const dopo = new KeyVault(dir);
   dopo.load();
-  assert.equal(dopo.get(), CHIAVE, 'alla riapertura la chiave salvata si ritrova');
+  assert.equal(dopo.get(a), CHIAVE, 'alla riapertura la chiave salvata si ritrova');
 
   fs.writeFileSync(file, 'file rovinato');
   const rovinata = new KeyVault(dir);
   rovinata.load();
-  assert.deepEqual([rovinata.get(), fs.existsSync(file)], ['', false], 'un file che non si decifra viene tolto');
+  assert.deepEqual([rovinata.get(a), fs.existsSync(file)], ['', false], 'un file che non si decifra viene tolto');
 
   for (const [cifratura, backend] of [[false, 'dpapi'], [true, 'basic_text']]) {
     F.cifratura = cifratura; F.backend = backend;
@@ -172,33 +218,35 @@ test('chiave: senza portachiavi non viene scritta; alla riapertura si rilegge qu
     if (backend === 'basic_text') Object.defineProperty(process, 'platform', { value: 'linux' });
     try {
       const v = new KeyVault(dir);
-      v.set(CHIAVE, true);
-      assert.deepEqual([v.state().present, v.state().stored, v.state().canEncrypt, fs.existsSync(file)], [true, false, false, false], 'senza cifratura vera la chiave vale solo fino alla chiusura');
+      v.set(a, CHIAVE, true);
+      const s = v.states().anthropic;
+      assert.deepEqual([s.present, s.stored, s.canEncrypt, fs.existsSync(file)], [true, false, false, false], 'senza cifratura vera la chiave vale solo fino alla chiusura');
     } finally { Object.defineProperty(process, 'platform', piattaforma); }
   }
 });
 
 test('lettura: la richiesta parte dal processo principale con la chiave custodita, e si può fermare', async () => {
   const immagini = [{ media_type: 'image/jpeg', data: 'QUJD' }, { media_type: 'text/html', data: 'no' }, 'non valida'];
-  const esito = await chiama('lettura:chiedi', 'l1', 'claude-sonnet-5-5', 'Trascrivi', immagini);
+  const esito = await chiama('lettura:chiedi', 'l1', 'anthropic', 'claude-sonnet-5-5', 'Trascrivi', immagini);
   assert.deepEqual(esito, { ok: true, value: { righe: [] } });
   const corpo = JSON.parse(E.richieste.filter(r => r.url.endsWith('/v1/messages')).pop().init.body);
   assert.equal(corpo.model, 'claude-sonnet-5-5');
   assert.deepEqual(corpo.messages[0].content.map(b => b.type), ['image', 'text'], 'passano solo le immagini valide');
-  assert.equal((await chiama('lettura:chiedi', 'l2', 'modello con spazi', 'x', [])).code, 'api_invalid');
+  assert.equal((await chiama('lettura:chiedi', 'l2', 'anthropic', 'modello con spazi', 'x', [])).code, 'api_invalid');
+  assert.equal((await chiama('lettura:chiedi', 'l2b', 'sconosciuto', 'claude-sonnet-5-5', 'x', [])).code, 'api_invalid');
 
   E.rete = (url, init) => new Promise((_, rifiuta) => { init.signal.addEventListener('abort', () => rifiuta(new Error('interrotta'))); });
-  const inCorso = chiama('lettura:chiedi', 'l3', 'claude-sonnet-5-5', 'x', []);
+  const inCorso = chiama('lettura:chiedi', 'l3', 'anthropic', 'claude-sonnet-5-5', 'x', []);
   await new Promise(fatto => setImmediate(fatto));
   E.ascolti.get('lettura:ferma')({ sender: {}, senderFrame: E.cornice }, 'l3');
   E.ascolti.get('lettura:ferma')(pagina, 'l3');
   assert.equal((await inCorso).code, 'cancelled');
   E.rete = () => Promise.reject(new Error('rete assente'));
-  assert.equal((await chiama('lettura:chiedi', 'l4', 'claude-sonnet-5-5', 'x', [])).code, 'offline');
+  assert.equal((await chiama('lettura:chiedi', 'l4', 'anthropic', 'claude-sonnet-5-5', 'x', [])).code, 'offline');
   E.rete = rete;
 
-  await chiama('chiave:rimuovi');
-  assert.equal((await chiama('lettura:chiedi', 'l5', 'claude-sonnet-5-5', 'x', [])).code, 'no_key');
+  await chiama('chiave:rimuovi', 'anthropic');
+  assert.equal((await chiama('lettura:chiedi', 'l5', 'anthropic', 'claude-sonnet-5-5', 'x', [])).code, 'no_key');
   assert.ok(!fs.existsSync(path.join(dati, 'chiave-api.bin')), 'la chiave rimossa sparisce anche dal disco');
 });
 

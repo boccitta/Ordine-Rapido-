@@ -1,14 +1,14 @@
 /*
  * Ordine Rapido - ambiente «browser»: la pagina aperta da file o la versione portatile in un solo file.
- * Archivi nel database del browser (IndexedDB), chiave API nella memoria locale del browser,
- * lettura con una richiesta diretta ad Anthropic, file salvati con il normale download.
+ * Archivi nel database del browser (IndexedDB), chiavi API nella memoria locale del browser,
+ * lettura con una richiesta diretta al servizio scelto (Anthropic, Google o OpenAI), file salvati con il normale download.
  *
  * Copyright (C) 2026 Roberto Murenu
  * Software libero distribuito con licenza GNU General Public License versione 3 (GPL-3.0-only),
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
-import { MAX_IMAGES, MODELS, askJson, keyLooksValid, listModels } from '../anthropic/protocollo.ts';
-import type { EncodedImage, HttpRequest, Model, Send } from '../anthropic/protocollo.ts';
+import { MAX_IMAGES, PROVIDERS, PROVIDER_IDS, allowedUrl, isProviderId, keyLooksValid, pickModel } from '../ia/indice.ts';
+import type { EncodedImage, HttpRequest, Model, ProviderId, Send } from '../ia/indice.ts';
 import { KINDS, archiveDate, archiveItems, emptyArchive, pack, setArchiveDate, unpack } from '../core/anagrafiche.ts';
 import { AppError } from '../core/tipi.ts';
 import type { Archive, Item, Kind } from '../core/tipi.ts';
@@ -131,24 +131,37 @@ export function browserStore(): ArchiveStore {
   return store;
 }
 
-/* ---------- Lettura automatica con la chiave API di chi usa l'app ---------- */
+/* ---------- Lettura con un servizio di intelligenza artificiale, con la chiave API di chi usa l'app ---------- */
 export const AI_KEY = 'ordine-rapido-lettura';
 
-export interface AiSaved { key: string; remember: boolean; model: string; models: Model[] }
+/** Chiave (solo nel browser), modello scelto ed elenco dei modelli di un servizio. */
+export interface ProviderSaved { key: string; model: string; models: Model[] }
+export interface AiSaved { provider: ProviderId; remember: boolean; p: Record<ProviderId, ProviderSaved> }
+
+function models(v: unknown): Model[] {
+  const out: Model[] = [];
+  if (Array.isArray(v)) for (const m of v as unknown[]) if (Array.isArray(m) && typeof m[0] === 'string') out.push([m[0], String(m[1] || m[0])]);
+  return out;
+}
+function providerSaved(id: ProviderId, v: unknown): ProviderSaved {
+  const o = v && typeof v === 'object' ? v as Record<string, unknown> : {};
+  return { key: typeof o.key === 'string' ? o.key : '', model: typeof o.model === 'string' && o.model ? o.model : (PROVIDERS[id].models[0] || [''])[0], models: models(o.models) };
+}
+/** Le impostazioni di lettura salvate. Quelle di una versione precedente (solo Claude) diventano quelle di Claude. */
 export function loadAiSaved(): AiSaved {
   let o: Record<string, unknown> = {};
   try { o = JSON.parse(localStorage.getItem(AI_KEY) || '{}') || {}; } catch { /* impostazioni illeggibili: si riparte da quelle predefinite */ }
-  const models: Model[] = [];
-  if (Array.isArray(o.models)) for (const m of o.models as unknown[]) if (Array.isArray(m) && typeof m[0] === 'string') models.push([m[0], String(m[1] || m[0])]);
-  return { key: typeof o.key === 'string' ? o.key : '', remember: o.remember !== false,
-    model: typeof o.model === 'string' && o.model ? o.model : (MODELS[0] ? MODELS[0][0] : ''), models };
+  const per = o.p && typeof o.p === 'object' ? o.p as Record<string, unknown> : { anthropic: { key: o.key, model: o.model, models: o.models } };
+  const p = {} as Record<ProviderId, ProviderSaved>;
+  for (const id of PROVIDER_IDS) p[id] = providerSaved(id, per[id]);
+  return { provider: isProviderId(o.provider) ? o.provider : 'anthropic', remember: o.remember !== false, p };
 }
-/** Scrive le impostazioni di lettura. `withKey` è false nell'app desktop, dove la chiave non passa mai da qui. */
+/** Scrive le impostazioni di lettura. `withKey` è false nell'app desktop, dove le chiavi non passano mai da qui. */
 export function storeAiSaved(ai: AiSaved, withKey: boolean): boolean {
-  try {
-    localStorage.setItem(AI_KEY, JSON.stringify({ key: withKey && ai.remember ? ai.key : '', remember: ai.remember, model: ai.model, models: ai.models }));
-    return true;
-  } catch { return false; }
+  const p: Record<string, ProviderSaved> = {};
+  for (const id of PROVIDER_IDS) { const s = ai.p[id]; p[id] = { key: withKey && ai.remember ? s.key : '', model: s.model, models: s.models }; }
+  try { localStorage.setItem(AI_KEY, JSON.stringify({ provider: ai.provider, remember: ai.remember, p })); return true; }
+  catch { return false; }
 }
 
 export function blobBase64(blob: Blob): Promise<string> {
@@ -165,36 +178,52 @@ export async function encodeImages(images: readonly Blob[] | undefined): Promise
   return out;
 }
 
-/* La richiesta parte da questo dispositivo e va direttamente ad Anthropic, senza altri passaggi. */
+/* La richiesta parte da questo dispositivo e va direttamente al servizio scelto, senza altri passaggi. */
 const send: Send = (url: string, request: HttpRequest) => {
+  if (!allowedUrl(url)) return Promise.reject(new AppError('forbidden'));
   const init: RequestInit = { method: request.method, headers: request.headers, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' };
   if (request.body !== undefined) init.body = request.body;
   if (request.signal) init.signal = request.signal;
   return fetch(url, init);
 };
 
+/** Lo stato di lettura da mostrare, a partire da quello salvato e da quanto si sa delle chiavi. */
+export function aiState(ai: AiSaved, keys: (id: ProviderId) => { has: boolean; text: string; hint: string }): AiState {
+  const providers = {} as AiState['providers'];
+  for (const id of PROVIDER_IDS) {
+    const s = ai.p[id], k = keys(id);
+    providers[id] = { hasKey: k.has, keyText: k.text, keyHint: k.hint, model: s.model, models: s.models.slice() };
+  }
+  return { provider: ai.provider, remember: ai.remember, providers };
+}
+
 function browserAi(): AiAccess {
-  /* La chiave resta solo qui: nelle impostazioni dell'app su questo dispositivo, mai negli archivi né nelle copie di sicurezza. */
+  /* Le chiavi restano solo qui: nelle impostazioni dell'app su questo dispositivo, mai negli archivi né nelle copie di sicurezza. */
   const ai = loadAiSaved();
   const reader: Reader = {
     limits: async () => ({ images: { maxCount: MAX_IMAGES } }),
-    json: async (prompt: string, opts?: ReadOptions) =>
-      askJson(send, ai.key, ai.model, prompt, await encodeImages(opts && opts.images), opts && opts.signal, true)
+    json: async (prompt: string, opts?: ReadOptions) => {
+      const s = ai.p[ai.provider];
+      return PROVIDERS[ai.provider].askJson(send, s.key, s.model, prompt, await encodeImages(opts && opts.images), (opts && opts.signal) || null, true);
+    }
   };
   return {
     needsKey: true,
-    state: (): AiState => ({ hasKey: !!ai.key, keyText: ai.key, keyHint: ai.key.slice(-4), remember: ai.remember, model: ai.model, models: ai.models.slice() }),
-    reader: () => (ai.key ? reader : null),
-    async verify(key, remember, model): Promise<KeyOutcome> {
-      const candidate = key || ai.key;
+    available: PROVIDER_IDS,
+    state: () => aiState(ai, id => ({ has: !!ai.p[id].key, text: ai.p[id].key, hint: ai.p[id].key.slice(-4) })),
+    reader: () => (ai.p[ai.provider].key ? reader : null),
+    async verify(id, key, remember): Promise<KeyOutcome> {
+      const s = ai.p[id], candidate = key || s.key;
       if (!keyLooksValid(candidate)) throw new AppError('bad_key_format');
-      const models = await listModels(send, candidate, true);
-      ai.key = candidate; ai.remember = remember; ai.model = model || ai.model; ai.models = models;
+      const list = await PROVIDERS[id].listModels(send, candidate, true);
+      s.key = candidate; s.models = list; s.model = pickModel(id, s.model, list);
+      ai.remember = remember;
       const saved = storeAiSaved(ai, true);
       return !remember ? 'session' : saved ? 'saved' : 'unsaved';
     },
-    async forget() { ai.key = ''; ai.models = []; storeAiSaved(ai, true); },
-    setModel(model) { ai.model = model; storeAiSaved(ai, true); },
+    async forget(id) { ai.p[id].key = ''; ai.p[id].models = []; storeAiSaved(ai, true); },
+    setProvider(id) { ai.provider = id; storeAiSaved(ai, true); },
+    setModel(id, model) { ai.p[id].model = model; storeAiSaved(ai, true); },
     async setRemember(remember) { ai.remember = remember; storeAiSaved(ai, true); }
   };
 }

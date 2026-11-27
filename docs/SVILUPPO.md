@@ -11,10 +11,10 @@ Il codice è scritto in **TypeScript**, nella cartella `src/`, diviso in moduli 
 | `src/core/` | **Logica pura**: numeri, calcoli, controlli, abbinamento con l'archivio, tracciato e costruzione del file, modello del gestionale, copia di sicurezza | solo se stessa |
 | `src/core/lettura/` | **Lettura sul dispositivo**, sempre logica pura: da righe di testo con la posizione di ogni pezzo (`testo.ts`) a tabelle d'ordine (`tabella.ts`), righe scritte a parole (`libera.ts`), testata e totali (`testata.ts`). Restituisce la stessa forma che restituisce Claude, così il resto dell'app non distingue chi ha letto | `core` |
 | `src/ocr/` | Il motore che riconosce i caratteri nelle foto: gira in un worker e non fa parte di `app.js` | `ppu-paddle-ocr`, `onnxruntime-web` |
-| `src/anthropic/` | Colloquio con Anthropic: come si compone la richiesta e come si legge la risposta. Non spedisce nulla: riceve da fuori la funzione che lo fa | `core` |
-| `src/piattaforma/` | Gli **ambienti** in cui gira la pagina (browser, app desktop, dentro Claude) dietro un unico contratto: archivi, chiave API, lettura, salvataggio dei file | `core`, `anthropic`, il contratto del ponte |
+| `src/ia/` | Colloquio con i tre servizi di intelligenza artificiale: `anthropic.ts` (Claude, API Messages), `gemini.ts` (Gemini, generateContent), `openai.ts` (GPT, API Responses), con `comune.ts` per errori e richieste e `indice.ts` con l'elenco dei servizi e dei loro indirizzi. Non spedisce nulla: riceve da fuori la funzione che lo fa | `core` |
+| `src/piattaforma/` | Gli **ambienti** in cui gira la pagina (browser, app desktop, dentro Claude) dietro un unico contratto: archivi, chiavi API, lettura, salvataggio dei file | `core`, `ia`, il contratto del ponte |
 | `src/ui/` | Interfaccia: schermate, righe, archivio, lettura dei file, esportazione, impostazioni, ordine in corso salvato, avviso per gli errori imprevisti | tutto il precedente |
-| `src/desktop/` | App desktop: processo principale (`main.ts`), ponte con la finestra (`preload.ts`, `contratto.ts`), custodia della chiave (`chiave.ts`), archivi su disco (`archivi.ts`) | `core`, `anthropic`, Electron, Node |
+| `src/desktop/` | App desktop: processo principale (`main.ts`), ponte con la finestra (`preload.ts`, `contratto.ts`), custodia delle chiavi (`chiave.ts`), archivi su disco (`archivi.ts`) | `core`, `ia`, Electron, Node |
 
 Una prova (`test/progetto.test.mjs`) fa rispettare la colonna «Può usare»: se la logica importa qualcosa dell'interfaccia, o la pagina importa Electron, `npm test` fallisce.
 
@@ -58,15 +58,15 @@ Per provare la pagina in un browser: `npm run compila`, poi apri `app/index.html
 | Si riconosce da | nessuno dei due seguenti | `window.ordineRapido`, il ponte | `window.claude` |
 | Archivi | IndexedDB | file nella cartella dati dell'app | spazio privato della pagina |
 | Chiave API | memoria locale della pagina, in chiaro | processo principale, cifrata dal sistema operativo | non serve |
-| Chi parla con Anthropic | la pagina | il processo principale | Claude |
+| Chi parla con il servizio scelto | la pagina | il processo principale | Claude (solo Claude) |
 | Salvataggio dei file | download del browser | finestra «Salva con nome» | funzione offerta dalla pagina |
 
 ### L'app desktop
 
 La finestra carica `app/index.html` isolata (`contextIsolation`, `sandbox`, niente Node) e riceve solo il ponte descritto in `src/desktop/contratto.ts`: è l'elenco completo di quello che la pagina può chiedere.
 
-- **Chiave API.** Entra dal ponte una volta, quando l'utente la scrive, e non torna più indietro: il contratto non ha una funzione per rileggerla. Se va ricordata viene scritta in `chiave-api.bin` cifrata con `safeStorage` (portachiavi del sistema). Dove un portachiavi non c'è (alcuni Linux) non viene scritta: vale fino alla chiusura.
-- **Rete.** Dalla finestra non parte nessuna richiesta, nemmeno verso Anthropic. Il processo principale usa una sessione di rete dedicata, senza dati su disco, da cui si raggiunge solo `api.anthropic.com`.
+- **Chiave API.** Entra dal ponte una volta, quando l'utente la scrive, e non torna più indietro: il contratto non ha una funzione per rileggerla. Se va ricordata viene scritta in un file per servizio (`chiave-api.bin` per Anthropic, nome rimasto dalle versioni precedenti; `chiave-gemini.bin`; `chiave-openai.bin`), cifrata con `safeStorage` (portachiavi del sistema). Dove un portachiavi non c'è (alcuni Linux) non viene scritta: vale fino alla chiusura.
+- **Rete.** Dalla finestra non parte nessuna richiesta. Il processo principale usa una sessione di rete dedicata, senza dati su disco, da cui si raggiungono solo gli indirizzi dei tre servizi (`allowedUrl` in `src/ia/indice.ts`).
 - **Archivi.** File JSON in `archivi/` dentro la cartella dati, scritti prima su un file provvisorio e poi rinominati: un'interruzione non rovina l'archivio già salvato.
 - **Chi chiama.** Ogni richiesta sul ponte viene accettata solo se arriva dalla pagina dell'app nella sua finestra.
 
@@ -75,7 +75,7 @@ La finestra carica `app/index.html` isolata (`contextIsolation`, `sandbox`, nien
 | Dato | Browser | App desktop |
 |---|---|---|
 | Archivi e abbinamenti | IndexedDB, database `ordine-rapido`, contenitore `archivi`, chiavi `art`, `cli`, `man`, `alias` | `archivi/art.json`, `cli.json`, `man.json`, `abbinamenti.json` nella cartella dati |
-| Chiave API | localStorage, `ordine-rapido-lettura` | `chiave-api.bin` nella cartella dati, cifrata |
+| Chiavi API | localStorage, `ordine-rapido-lettura` (servizio scelto, chiavi e modelli di ognuno) | `chiave-api.bin`, `chiave-gemini.bin`, `chiave-openai.bin` nella cartella dati, cifrate |
 | Modello scelto | localStorage, `ordine-rapido-lettura` | come nel browser |
 | Ordine in lavorazione | localStorage, `ordine-rapido-bozza`: salvato a ogni modifica, tolto con «Nuovo ordine» (`src/ui/bozza.ts`) | come nel browser |
 | Tracciato | localStorage, `ordine-rapido-tracciato` | come nel browser |
@@ -122,7 +122,7 @@ node test/desktop.js dist/linux-unpacked/ordine-rapido   # app desktop impacchet
 
 Su Linux senza schermo, davanti alle prove dell'app desktop va messo `xvfb-run -a`.
 
-Il servizio di Anthropic è simulato da `test/simulazione.js`: le prove non hanno bisogno di una chiave e non mandano nulla su internet. Controllano tra l'altro che nessuna richiesta parta verso altri siti e che gli archivi non vengano inviati con la lettura.
+I tre servizi sono simulati da `test/simulazione.js`, con la forma delle loro risposte: le prove non hanno bisogno di una chiave e non mandano nulla su internet. Controllano tra l'altro che nessuna richiesta parta verso altri siti e che gli archivi non vengano inviati con la lettura.
 
 L'app desktop è coperta da tre prove, che si completano:
 
@@ -130,7 +130,7 @@ L'app desktop è coperta da tre prove, che si completano:
 |---|---|---|
 | `test/principale.test.mjs` | il processo principale: chiave, rete, archivi, controllo di chi chiama | Electron |
 | `test/ponte.js` | l'interfaccia in modalità desktop, in Chromium | il processo principale |
-| `test/desktop.js` | tutto, in Electron | solo il servizio di Anthropic |
+| `test/desktop.js` | tutto, in Electron, compresa una foto letta dal riconoscimento dei caratteri | solo il servizio di Anthropic |
 
 Le prime due girano ovunque. La terza ha bisogno di poter avviare Electron: su Windows con **Smart App Control** attivo l'eseguibile di Electron, che non è firmato, viene bloccato dal sistema; in quel caso la prova completa si lascia alle verifiche automatiche su GitHub.
 
@@ -138,8 +138,8 @@ Le prime due girano ovunque. La terza ha bisogno di poter avviare Electron: su W
 
 - **Nessun dato reale**, nemmeno nei commenti o nelle prove. Solo i dati di `esempi/` o altri costruiti allo stesso modo.
 - **Niente contenuti inseriti come HTML.** Tutto ciò che arriva da un documento o da un archivio passa per `textContent`, attraverso la funzione `el()` di `src/ui/dom.ts`.
-- **Nessun nuovo indirizzo di rete.** Una prova fallisce se il codice nomina un indirizzo diverso da quello di Anthropic.
-- **La logica sta in `src/core/`** e ogni comportamento nuovo ha la sua prova in `test/core.test.mjs`, `test/modello.test.mjs` (modello del gestionale) o `test/lettura.test.mjs` (lettura sul dispositivo).
+- **Nessun nuovo indirizzo di rete.** Una prova fallisce se il codice nomina un indirizzo diverso da quelli dei tre servizi, o se lo nomina fuori da `src/ia/`.
+- **La logica sta in `src/core/`** e ogni comportamento nuovo ha la sua prova in `test/core.test.mjs`, `test/modello.test.mjs` (modello del gestionale) `test/lettura.test.mjs` (lettura sul dispositivo), `test/ricette.test.mjs` (ricette dei clienti) o `test/ia.test.mjs` (i tre servizi).
 - **La lettura sul dispositivo non indovina.** Le regole di `src/core/lettura/` riempiono i campi; se un codice vale lo decide sempre l'abbinamento con l'archivio. Quando una regola fa una supposizione (un omaggio dedotto, una quantità senza unità, una correzione applicata) lo scrive tra gli avvisi.
 - **Il controllo dei tipi deve passare** (`npm run tipi`), con le opzioni severe di `tsconfig.json`. Niente `any`: un dato di provenienza esterna è `unknown` finché non lo si è controllato.
 - **Gli errori hanno un codice.** Si lanciano con `AppError` (`src/core/tipi.ts`); l'interfaccia traduce il codice nel messaggio per chi usa l'app.

@@ -12,7 +12,7 @@
   },
   "scripts": {
     "start": "node scripts/compila.js && electron .",
-    "test": "node --test test/core.test.mjs test/modello.test.mjs test/lettura.test.mjs test/progetto.test.mjs && node scripts/controlla-dati.js",
+    "test": "node --test test/core.test.mjs test/modello.test.mjs test/lettura.test.mjs test/ricette.test.mjs test/ia.test.mjs test/progetto.test.mjs && node scripts/controlla-dati.js",
     "test:costruzione": "node --test test/costruzione.test.mjs test/principale.test.mjs",
     "test:e2e": "node test/e2e.js",
     "tipi": "tsc --noEmit",

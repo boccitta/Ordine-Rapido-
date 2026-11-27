@@ -1,5 +1,5 @@
 /*
- * Simulazione del servizio di Anthropic per le prove: risponde al posto del servizio vero,
+ * Simulazione dei servizi di Anthropic, Google e OpenAI per le prove: rispondono al posto dei servizi veri,
  * così le prove non hanno bisogno di una chiave e non mandano nulla su internet.
  */
 'use strict';
@@ -47,6 +47,39 @@ async function simulaAnthropic(bersaglio, chiamate) {
   });
 }
 
+/* Chiavi inventate per Google e OpenAI, scritte a pezzi come quella di Anthropic. */
+const CHIAVE_GOOGLE = 'AIza' + 'chiave-di-prova-non-valida', CHIAVE_OPENAI = 'sk-' + 'proj-chiave-di-prova-non-valida';
+
+/* Gemini e GPT simulati, con la forma delle loro risposte (documentazione verificata il 27 novembre 2026). */
+async function simulaAltri(bersaglio, chiamate) {
+  const cors = { 'access-control-allow-origin': '*', 'content-type': 'application/json' };
+  await bersaglio.route('https://generativelanguage.googleapis.com/**', async route => {
+    const req = route.request(), url = new URL(req.url()), h = req.headers();
+    chiamate.push({ host: url.host, path: url.pathname, headers: h, body: req.postDataJSON(), url: req.url() });
+    if (h['x-goog-api-key'] !== CHIAVE_GOOGLE)
+      return route.fulfill({ status: 400, headers: cors, body: JSON.stringify([{ error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT', details: [{ reason: 'API_KEY_INVALID' }] } }]) });
+    if (url.pathname === '/v1beta/models')
+      return route.fulfill({ status: 200, headers: cors, body: JSON.stringify({ models: [
+        { name: 'models/gemini-4-hydrogen', displayName: 'Gemini 4 Hydrogen', supportedGenerationMethods: ['generateContent', 'countTokens'] },
+        { name: 'models/gemini-3.5-flash-lite', displayName: 'Gemini 3.5 Flash-Lite', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/gemini-4-hydrogen-image', displayName: 'Immagini', supportedGenerationMethods: ['generateContent'] }] }) });
+    if (/:generateContent$/.test(url.pathname))
+      return route.fulfill({ status: 200, headers: cors, body: JSON.stringify({ candidates: [{ finishReason: 'STOP', content: { role: 'model', parts: [{ text: 'pensiero', thought: true }, { text: JSON.stringify(ORDINE_LETTO) }] } }] }) });
+    return route.fulfill({ status: 404, headers: cors, body: '{}' });
+  });
+  await bersaglio.route('https://api.openai.com/**', async route => {
+    const req = route.request(), url = new URL(req.url()), h = req.headers();
+    chiamate.push({ host: url.host, path: url.pathname, headers: h, body: req.postDataJSON(), url: req.url() });
+    if (h.authorization !== 'Bearer ' + CHIAVE_OPENAI)
+      return route.fulfill({ status: 401, headers: cors, body: JSON.stringify({ error: { message: 'Incorrect API key provided', type: 'invalid_request_error', code: 'invalid_api_key' } }) });
+    if (url.pathname === '/v1/models')
+      return route.fulfill({ status: 200, headers: cors, body: JSON.stringify({ object: 'list', data: [{ id: 'gpt-6.1-terra' }, { id: 'gpt-6.2-sol' }, { id: 'gpt-6-realtime' }, { id: 'tts-2' }] }) });
+    if (url.pathname === '/v1/responses')
+      return route.fulfill({ status: 200, headers: cors, body: JSON.stringify({ status: 'completed', output: [{ type: 'reasoning', summary: [] }, { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: JSON.stringify(ORDINE_LETTO) }] }] }) });
+    return route.fulfill({ status: 404, headers: cors, body: '{}' });
+  });
+}
+
 /*
  * Come sopra, per l'app desktop. Lì le richieste non partono dalla finestra ma dal processo principale, in una sessione
  * di rete dedicata: si intercettano in quel punto, senza toccare il codice dell'app. Le richieste viste restano
@@ -78,4 +111,4 @@ async function simulaAnthropicDesktop(app) {
 }
 const chiamateDesktop = app => app.evaluate(() => globalThis.__chiamateAnthropic || []);
 
-module.exports = { CHIAVE_FINTA, ORDINE_LETTO, simulaAnthropic, simulaAnthropicDesktop, chiamateDesktop };
+module.exports = { CHIAVE_FINTA, CHIAVE_GOOGLE, CHIAVE_OPENAI, ORDINE_LETTO, simulaAnthropic, simulaAltri, simulaAnthropicDesktop, chiamateDesktop };

@@ -1,12 +1,14 @@
 /*
- * Ordine Rapido - interfaccia: il pannello Impostazioni. Chi legge gli ordini (questo dispositivo oppure Claude,
- * con chiave API e modello), il modello del gestionale e il tracciato del file (colonne, separatore, formato dei numeri).
+ * Ordine Rapido - interfaccia: il pannello Impostazioni. Chi legge gli ordini (questo dispositivo, un servizio di
+ * intelligenza artificiale a scelta tra Claude, Gemini e GPT con la propria chiave e il proprio modello, oppure i due
+ * insieme), il modello del gestionale e il tracciato del file (colonne, separatore, formato dei numeri).
  *
  * Copyright (C) 2026 Roberto Murenu
  * Software libero distribuito con licenza GNU General Public License versione 3 (GPL-3.0-only),
  * senza alcuna garanzia. Il testo completo della licenza è nel file LICENSE.
  */
-import { MODELS, MODEL_HINT, keyLooksValid } from '../anthropic/protocollo.ts';
+import { PROVIDERS, isProviderId, keyLooksValid } from '../ia/indice.ts';
+import type { ProviderId } from '../ia/indice.ts';
 import { FIELD_EMPTY, FIELD_FIXED, analyzeTemplate, profileFromTemplate } from '../core/modello.ts';
 import type { TemplateAnalysis } from '../core/modello.ts';
 import { fmtDate } from '../core/numeri.ts';
@@ -25,15 +27,20 @@ import { tableFromFile } from './tabelle.ts';
 /* ---------- Chi legge gli ordini ---------- */
 function aiStatus(text: string, level?: string): void { status('aiStatus', text, level); }
 
-const AI_ERR: Readonly<Record<string, string>> = {
-  bad_key: 'La chiave non è valida o è stata revocata. Copiala di nuovo dalla Console di Anthropic.',
-  bad_key_format: 'La chiave contiene spazi o caratteri non validi. Copiala di nuovo dalla Console di Anthropic.',
-  no_permission: 'Questa chiave non ha i permessi necessari.',
-  billing: 'L\'account Anthropic collegato alla chiave non ha credito o ha un problema di pagamento.',
-  rate_limited: 'Troppe richieste o limite di spesa raggiunto. Riprova tra qualche minuto.',
-  offline: 'Non riesco a contattare Anthropic. Controlla la connessione a internet e riprova.',
-  overloaded: 'Il servizio di Anthropic non risponde in questo momento. Riprova tra poco.'
-};
+/** Che cosa dire quando una chiave non va: il nome del servizio e dell'azienda cambiano. */
+function aiError(code: string, id: ProviderId): string {
+  const p = PROVIDERS[id], where = id === 'anthropic' ? 'dalla Console di Anthropic' : id === 'gemini' ? 'da Google AI Studio' : 'dalla piattaforma di OpenAI';
+  const m: Readonly<Record<string, string>> = {
+    bad_key: 'La chiave non è valida o è stata revocata. Copiala di nuovo ' + where + '.',
+    bad_key_format: 'La chiave contiene spazi o caratteri non validi. Copiala di nuovo ' + where + '.',
+    no_permission: 'Questa chiave non ha i permessi necessari.',
+    billing: 'L\'account ' + p.company + ' collegato alla chiave non ha credito, ha esaurito la quota o ha un problema di pagamento.',
+    rate_limited: 'Troppe richieste o limite di spesa raggiunto. Riprova tra qualche minuto.',
+    offline: 'Non riesco a contattare ' + p.company + '. Controlla la connessione a internet e riprova.',
+    overloaded: 'Il servizio di ' + p.company + ' non risponde in questo momento. Riprova tra poco.'
+  };
+  return m[code] || '';
+}
 const KEY_MSG: Readonly<Record<KeyOutcome, string>> = {
   session: 'Chiave valida. Resta attiva fino alla chiusura dell\'app.',
   saved: 'Chiave valida, salvata su questo dispositivo.',
@@ -41,28 +48,44 @@ const KEY_MSG: Readonly<Record<KeyOutcome, string>> = {
   unsaved: 'Chiave valida, ma qui non si può salvare: vale fino alla chiusura dell\'app.',
   no_keyring: 'Chiave valida, ma questo sistema non offre un portachiavi per cifrarla: non viene scritta su disco e vale fino alla chiusura dell\'app.'
 };
+const MODE_NOTE: Readonly<Record<string, string>> = {
+  local: 'Niente esce da questo dispositivo. Se un ordine non si riesce a leggere, l\'app lo dice e propone l\'intelligenza artificiale.',
+  auto: 'Legge sul dispositivo; se la lettura è incompleta (righe senza quantità, articoli non trovati, scrittura a mano) chiede al servizio scelto e tiene il risultato migliore.',
+  ai: 'Ogni ordine viene inviato al servizio scelto.'
+};
+
+/** Il servizio mostrato nel pannello: quello scelto per leggere. */
+function shownProvider(): ProviderId { return platform().ai.state().provider; }
 
 export function renderAi(): void {
-  const ai = platform().ai, st = ai.state(), mode = readerMode();
+  const ai = platform().ai, st = ai.state(), mode = readerMode(), id = st.provider, ps = st.providers[id], p = PROVIDERS[id];
+  const anyKey = ai.available.some(x => st.providers[x].hasKey);
   select('ai-mode').value = mode;
-  status('aiModeNote', mode === 'claude' && ai.needsKey && !st.hasKey ? 'Per far leggere a Claude salva qui sotto la tua chiave API.' : '', 'warn');
+  const missing = mode !== 'local' && ai.needsKey && !ps.hasKey;
+  status('aiModeNote', missing ? 'Per far leggere a ' + p.name + ' salva qui sotto la tua chiave API: finché manca, legge questo dispositivo.' : (ai.needsKey ? MODE_NOTE[mode] || '' : ''), missing ? 'warn' : '');
   $('aiClaude').hidden = ai.needsKey; $('aiOwn').hidden = !ai.needsKey;
-  $('keyNote').hidden = !ai.needsKey || st.hasKey;
+  $('keyNote').hidden = !ai.needsKey || anyKey;
   if (!ai.needsKey) return;
+  const ps2 = select('ai-provider');
+  if (!ps2.options.length) for (const x of ai.available) ps2.append(el('option', { value: x, text: PROVIDERS[x].name + ' (' + PROVIDERS[x].company + ')' }));
+  ps2.value = id;
+  $('aiKeys').textContent = 'Chiavi salvate: ' + ai.available.map(x => PROVIDERS[x].name + (st.providers[x].hasKey ? ' ✓' : ' –')).join(' · ');
+  $('ai-key-label').textContent = 'Chiave API di ' + p.company;
+  for (const a of Array.from(document.querySelectorAll<HTMLElement>('.keylink'))) a.hidden = a.dataset.provider !== id;
   const key = input('ai-key');
-  key.value = st.keyText;
+  key.value = ps.keyText;
   /* Nell'app desktop la chiave salvata non torna nella pagina: se ne mostrano solo gli ultimi caratteri. */
-  key.placeholder = st.hasKey && !st.keyText ? 'Chiave salvata (termina con ' + st.keyHint + ')' : 'sk-ant-…';
+  key.placeholder = ps.hasKey && !ps.keyText ? 'Chiave salvata (termina con ' + ps.keyHint + ')' : p.keyStart + '…';
   input('ai-remember').checked = st.remember;
   const sel = select('ai-model'), seen: Record<string, 1> = {};
   sel.textContent = '';
-  for (const m of (st.models.length ? st.models : MODELS)) {
+  for (const m of (ps.models.length ? ps.models : p.models)) {
     if (seen[m[0]]) continue;
-    seen[m[0]] = 1; sel.append(el('option', { value: m[0], text: String(m[1] || m[0]) + (MODEL_HINT[m[0]] || '') }));
+    seen[m[0]] = 1; sel.append(el('option', { value: m[0], text: String(m[1] || m[0]) + (p.hints[m[0]] || '') }));
   }
-  if (!seen[st.model]) sel.append(el('option', { value: st.model, text: st.model }));
-  sel.value = st.model;
-  $('btnAiForget').hidden = !st.hasKey;
+  if (ps.model && !seen[ps.model]) sel.append(el('option', { value: ps.model, text: ps.model }));
+  sel.value = ps.model;
+  $('btnAiForget').hidden = !ps.hasKey;
 }
 
 export function openSettings(focusId: string): void {
@@ -72,20 +95,22 @@ export function openSettings(focusId: string): void {
 }
 
 async function saveKey(): Promise<void> {
-  const ai = platform().ai, st = ai.state(), key = input('ai-key').value.trim();
-  const reuse = !key && st.hasKey && !st.keyText;
-  if (!key && !reuse) { aiStatus('Incolla la tua chiave API.', 'warn'); $('ai-key').focus(); return; }
-  if (key && !keyLooksValid(key)) { aiStatus(AI_ERR.bad_key_format || '', 'bad'); return; }
+  const ai = platform().ai, id = shownProvider(), ps = ai.state().providers[id], key = input('ai-key').value.trim();
+  const reuse = !key && ps.hasKey && !ps.keyText;
+  if (!key && !reuse) { aiStatus('Incolla la tua chiave API di ' + PROVIDERS[id].company + '.', 'warn'); $('ai-key').focus(); return; }
+  if (key && !keyLooksValid(key)) { aiStatus(aiError('bad_key_format', id), 'bad'); return; }
   const b = button('btnAiSave');
-  b.disabled = true; aiStatus('Verifico la chiave…', '');
+  b.disabled = true; aiStatus('Verifico la chiave con ' + PROVIDERS[id].company + '…', '');
   try {
     /* l'elenco dei modelli non consuma credito: serve a provare la chiave e a proporre i modelli disponibili */
-    const out = await ai.verify(key, input('ai-remember').checked, select('ai-model').value || st.model);
-    renderAi(); readStatus('', '');
-    aiStatus(KEY_MSG[out], out === 'unsaved' || out === 'no_keyring' ? 'warn' : 'ok');
+    const out = await ai.verify(id, key, input('ai-remember').checked);
+    /* chi salva una chiave vuole usarla: se leggeva solo il dispositivo, si passa all'automatico */
+    if (S.readerChoice === 'local') S.readerChoice = 'auto';
+    saveUi(); renderAi(); readStatus('', '');
+    aiStatus(KEY_MSG[out] + ' Modello: ' + (select('ai-model').selectedOptions[0] || { textContent: '' }).textContent + '.', out === 'unsaved' || out === 'no_keyring' ? 'warn' : 'ok');
   } catch (e) {
     const detail = e instanceof AppError ? e.detail : '';
-    aiStatus(AI_ERR[errorCode(e)] || ('Verifica non riuscita.' + (detail ? ' Dettaglio: ' + detail : '')), 'bad');
+    aiStatus(aiError(errorCode(e), id) || ('Verifica non riuscita.' + (detail ? ' Dettaglio: ' + detail : '')), 'bad');
   } finally { b.disabled = false; }
 }
 
@@ -248,12 +273,19 @@ function preset(full: boolean): void {
 export function wireSettings(): void {
   $('btnAiSave').addEventListener('click', () => { void saveKey(); });
   $('btnAiForget').addEventListener('click', async () => {
-    try { await platform().ai.forget(); } catch { /* resta com'era: il pannello mostra lo stato reale */ }
+    const id = shownProvider();
+    try { await platform().ai.forget(id); } catch { /* resta com'era: il pannello mostra lo stato reale */ }
     renderAi();
-    aiStatus('Chiave rimossa da questo dispositivo.', '');
+    aiStatus('Chiave di ' + PROVIDERS[id].company + ' rimossa da questo dispositivo.', '');
   });
-  $('ai-mode').addEventListener('change', () => { S.readerChoice = select('ai-mode').value === 'claude' ? 'claude' : 'local'; saveUi(); renderAi(); readStatus('', ''); });
-  $('ai-model').addEventListener('change', () => platform().ai.setModel(select('ai-model').value));
+  $('ai-mode').addEventListener('change', () => { const v = select('ai-mode').value; S.readerChoice = v === 'ai' || v === 'auto' ? v : 'local'; saveUi(); renderAi(); readStatus('', ''); });
+  $('ai-provider').addEventListener('change', () => {
+    const v = select('ai-provider').value;
+    if (isProviderId(v)) platform().ai.setProvider(v);
+    input('ai-key').value = ''; input('ai-key').type = 'password'; $('ai-show').textContent = 'Mostra';
+    aiStatus('', ''); renderAi(); readStatus('', '');
+  });
+  $('ai-model').addEventListener('change', () => platform().ai.setModel(shownProvider(), select('ai-model').value));
   $('ai-remember').addEventListener('change', () => { platform().ai.setRemember(input('ai-remember').checked).catch(() => { /* vale la scelta fatta al prossimo salvataggio */ }); });
   $('ai-show').addEventListener('click', () => {
     const k = input('ai-key'), on = k.type === 'password';

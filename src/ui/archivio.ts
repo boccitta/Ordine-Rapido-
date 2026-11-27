@@ -12,6 +12,7 @@ import type { ColumnMap } from '../core/anagrafiche.ts';
 import { backupBuild, backupParse } from '../core/copia.ts';
 import type { Restored } from '../core/copia.ts';
 import { fmtDate } from '../core/numeri.ts';
+import { aliasCount, clearLearned, recipes } from '../core/ricette.ts';
 import { errorCode } from '../core/tipi.ts';
 import type { Archive, Kind } from '../core/tipi.ts';
 import type { StoreMode } from '../piattaforma/tipi.ts';
@@ -19,6 +20,7 @@ import { $, button, count, el, input, status, today } from './dom.ts';
 import { renderCols, renderTemplateInfo, syncOpts } from './impostazioni.ts';
 import { saveProfile } from './preferenze.ts';
 import { matchAll, refresh, renderLinks } from './righe.ts';
+import { renderRecipes } from './ricette.ts';
 import { paintChip, paintSetup } from './schermate.ts';
 import { tableFromFile } from './tabelle.ts';
 import { S, platform } from './stato.ts';
@@ -53,7 +55,8 @@ export function renderArchInfo(): void {
   $('cliInfo').textContent = when(a.cli.length, a.cliAt);
   $('manInfo').textContent = when(a.man.length, a.manAt);
   paintChip(); paintSetup();
-  $('aliasInfo').textContent = count(Object.keys(a.alias).length);
+  $('aliasInfo').textContent = count(aliasCount(a.alias));
+  renderRecipes();
   $('btnArt').textContent = a.art.length ? 'Aggiorna articoli' : 'Carica export articoli';
   $('btnCli').textContent = a.cli.length ? 'Aggiorna clienti' : 'Carica export clienti';
   $('btnMan').textContent = a.man.length ? 'Aggiorna mandanti' : 'Carica export mandanti';
@@ -191,7 +194,7 @@ async function chosenBackupFile(file: File): Promise<void> {
   const go = el('button', { type: 'button', className: 'primary', text: 'Ripristina' }), no = el('button', { type: 'button', text: 'Annulla' });
   m.append(el('strong', { text: 'Ripristino da ' + file.name }),
     el('p', { className: 'status', text: 'La copia contiene ' + count(data.art.length) + ' articoli, ' + count(data.cli.length) + ' clienti, ' + count(data.man.length) + ' mandanti e ' +
-      count(Object.keys(data.alias).length) + ' abbinamenti imparati' + (data.profile ? ', più il tracciato del file' : '') + '. Prende il posto di quello che c\'è adesso in archivio.' }),
+      count(aliasCount(data.alias)) + ' abbinamenti imparati, ' + count(recipes(data.alias).length) + ' ricette dei clienti' + (data.profile ? ', più il tracciato del file' : '') + '. Prende il posto di quello che c\'è adesso in archivio.' }),
     el('div', { className: 'row' }, go, no));
   no.addEventListener('click', () => { m.textContent = ''; m.hidden = true; });
   go.addEventListener('click', async () => {
@@ -235,7 +238,7 @@ export function wireArchive(): void {
     const b = button('btnAliasClear');
     if (!clearArmed) { clearArmed = true; b.textContent = 'Conferma: azzera'; setTimeout(() => { clearArmed = false; b.textContent = 'Azzera'; }, 4000); return; }
     clearArmed = false; b.textContent = 'Azzera';
-    S.arch.alias = Object.create(null); saveAliasSoon(); renderArchInfo(); archStatus('Abbinamenti imparati azzerati.', '');
+    clearLearned(S.arch.alias, 'alias'); saveAliasSoon(); renderArchInfo(); archStatus('Abbinamenti imparati azzerati. Le ricette dei clienti restano.', '');
   });
   input('archFile').addEventListener('change', () => {
     const field = input('archFile'), file = field.files && field.files[0];
