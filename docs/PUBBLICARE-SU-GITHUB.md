@@ -51,7 +51,9 @@ Se compare un segno rosso, apri la procedura e leggi quale passo si è fermato. 
 
 Da questo momento chiunque può scaricare l'app dalla pagina Releases.
 
-**Questa è la prima volta che i pacchetti per Windows e Mac vengono costruiti e avviati.** Qui sono stati provati l'app, la versione portatile e il pacchetto Linux. Se il passo «Pacchetto per Windows» o «Pacchetto per Mac» si ferma, la bozza non viene creata: copia il messaggio di errore e fattelo spiegare prima di riprovare.
+Durante la preparazione la procedura è già stata eseguita con successo per Windows, Linux e Mac: ogni pacchetto viene avviato sul proprio sistema e provato. Se un passo «Pacchetto per …» si ferma, la bozza non viene creata: copia il messaggio di errore e fattelo spiegare prima di riprovare.
+
+Su un PC con Windows 11 e **Smart App Control** attivo il pacchetto per Windows, che non è firmato, viene bloccato dal sistema: per provarlo serve un altro computer, oppure si usa la versione portatile `Ordine-Rapido.html`. Vedi [SECURITY.md](../SECURITY.md).
 
 ## 6. Sistema la pagina della repository
 

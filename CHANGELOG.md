@@ -191,7 +191,7 @@ Prima versione pubblica e open source.
 
 ### Limiti noti
 
-- **Pacchetti per Windows e Mac non ancora provati su quei sistemi.** L'app, la versione portatile e il pacchetto Linux sono stati provati davvero. I pacchetti per Windows e Mac vengono costruiti e avviati per la prima volta dalla procedura di rilascio su GitHub, che si ferma se uno di essi non parte.
+- **Pacchetti provati solo in automatico.** I pacchetti per Windows, Linux e Mac vengono costruiti dalla procedura di rilascio su GitHub, che avvia ciascuno sul proprio sistema, ne prova le funzioni principali e si ferma se uno non parte. Non sono stati provati a mano su computer di uso quotidiano.
 - **Pacchetti non firmati.** Windows e Mac mostrano un avviso al primo avvio. Le istruzioni sono nel README. Su Windows 11 con **Smart App Control** attivo non c'è solo un avviso: il sistema blocca i programmi non firmati e l'app desktop non parte finché i pacchetti non vengono firmati con un certificato di firma del codice. Su quei computer resta utilizzabile la versione portatile `Ordine-Rapido.html`. Dettagli in [SECURITY.md](SECURITY.md).
 - **Versione portatile.** I dati sono salvati nel browser e alcuni browser li legano alla posizione del file: tienilo sempre nella stessa cartella con lo stesso nome. È stata provata con Chromium.
 - **Lettura automatica.** Richiede internet e una chiave API. Vengono lette le prime 6 pagine di un PDF e al massimo 12 immagini per ordine.
