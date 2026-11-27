@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="512" height="512" role="img" aria-label="Ordine Rapido">
+  <!-- Il marchio di Ordine Rapido: le righe di un ordine che diventano una freccia.
+       Due righe bianche restano indietro, quella al centro corre avanti verso il gestionale. -->
+  <rect width="48" height="48" rx="13" fill="#0B1E49"/>
+  <rect x=".75" y=".75" width="46.5" height="46.5" rx="12.25" fill="none" stroke="#2A4585" stroke-width="1.5"/>
+  <path d="M16.5 15.5h10M19.5 32.5h7" stroke="#F1F5FC" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+  <path d="M10 24h25M28.5 16.2 36.6 24l-8.1 7.8" stroke="#12CFFB" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

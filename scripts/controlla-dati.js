@@ -18,7 +18,7 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 const SALTA_CARTELLE = new Set(['.git', 'node_modules', 'dist', 'privato', 'dati']);
 const TERZI = ['app/vendor/', 'package-lock.json', 'LICENSE'];           // codice e testi di terzi: non contengono dati nostri
-const DATI_PERMESSI = [/^esempi\//, /^docs\/img\/[^/]+\.png$/, /^build\/icon\.png$/, /^app\/vendor\//];
+const DATI_PERMESSI = [/^esempi\//, /^docs\/img\/[^/]+\.png$/, /^build\/icon\.png$/, /^app\/vendor\//, /^sito\/img\/[^/]+\.png$/];   // le immagini del sito sono schermate dell'app con i dati di esempio
 const ESTENSIONI_DATI = /\.(csv|tsv|xlsx?|xlsm|ods|pdf|eml|msg|jpe?g|png|gif|webp|heic|bmp|zip|sqlite|db|bak)$/i;
 const EMAIL_PERMESSE = /@(example\.(com|org|it)|esempio\.it|anthropic\.com|users\.noreply\.github\.com)$/i;
 
