@@ -82,7 +82,7 @@ Cose da sapere:
 - **Serve internet** per la lettura automatica. Tutto il resto funziona senza connessione.
 - **Ogni lettura ha un costo**, addebitato da Anthropic all'account della chiave. Dipende dal modello e dalla lunghezza del documento: consulta i [prezzi dei modelli](https://platform.claude.com/docs/en/models/overview).
 - **Senza chiave l'app funziona lo stesso**: scrivi le righe a mano, le colleghi all'archivio, controlli ed esporti.
-- La chiave resta sul tuo dispositivo e viene inviata soltanto ad Anthropic. Non entra negli archivi, nelle copie di sicurezza né nel file esportato. Puoi anche scegliere di non farla ricordare.
+- La chiave resta sul tuo dispositivo e viene inviata soltanto ad Anthropic. Non entra negli archivi, nelle copie di sicurezza né nel file esportato. Puoi anche scegliere di non farla ricordare. Nell'app desktop è custodita cifrata dal sistema operativo e, una volta salvata, non viene più mostrata: se ne vedono solo gli ultimi caratteri.
 - Vengono letti al massimo le prime 6 pagine di un PDF e 12 immagini per ordine.
 
 Il modello trascrive, non decide: i codici validi sono solo quelli dell'archivio, e ogni lettura va controllata prima di esportare.
@@ -111,6 +111,8 @@ Tieni il file **sempre nella stessa cartella e con lo stesso nome**: alcuni brow
 ### Windows
 
 Al primo avvio Windows può mostrare l'avviso «PC protetto da Windows». È normale: l'app è gratuita e non ha la firma digitale a pagamento. Premi **Ulteriori informazioni** e poi **Esegui comunque**.
+
+Se invece Windows dice che l'app è stata **bloccata** e non offre «Esegui comunque», sul tuo computer è attivo **Smart App Control** (succede su molti PC recenti con Windows 11): il sistema non lascia partire i programmi senza firma digitale. In questo caso usa la versione portatile `Ordine-Rapido.html`, che si apre nel browser e fa le stesse cose. Non conviene disattivare Smart App Control per questo: è una protezione del sistema e, su molte versioni di Windows 11, una volta spenta non si può riaccendere senza reinstallare il sistema.
 
 ### Mac
 
@@ -151,8 +153,9 @@ Scarica i pacchetti soltanto dalla pagina ufficiale dei rilasci di questa reposi
 |---|---|---|
 | Archivi di articoli, clienti e mandanti | Sul dispositivo | No, salvo quanto indicato sotto per i suggerimenti |
 | Abbinamenti imparati e tracciato del file | Sul dispositivo | No |
-| Chiave API | Sul dispositivo | Solo verso Anthropic, per autenticare le letture |
+| Chiave API | Sul dispositivo; nell'app desktop cifrata dal sistema operativo | Solo verso Anthropic, per autenticare le letture |
 | Documento dell'ordine (testo e immagini delle pagine) o messaggio incollato | Non viene salvato | **Sì, verso Anthropic**, solo quando premi Leggi ordine |
+| Ordine in lavorazione (righe e dati dell'ordine, così come li stai controllando) | Sul dispositivo, per ritrovarlo se l'app si chiude; sparisce quando premi Nuovo ordine | No |
 | Righe non trovate e articoli candidati | — | **Sì, verso Anthropic**, per i suggerimenti di abbinamento: partono da soli dopo una lettura se restano righe non trovate, oppure quando premi Suggerisci abbinamenti. Vengono inviati descrizione, codice e prezzo della riga, e codice, descrizione, unità di misura e listino di al massimo 10 articoli candidati per riga |
 | File CSV esportato | Dove lo salvi tu | No |
 
