@@ -12,7 +12,8 @@ import { num, round, show as showNum } from '../core/numeri.ts';
 import { checks, rowCalc, rowDiff, totals, unlinked } from '../core/ordine.ts';
 import type { Article, Link, Order, Row, RowText, Via } from '../core/tipi.ts';
 import { renderArchInfo, saveAliasSoon } from './archivio.ts';
-import { $, button, el, find, input, miniBtn, money } from './dom.ts';
+import { saveDraftSoon } from './bozza.ts';
+import { $, button, el, find, icon, input, miniBtn, money } from './dom.ts';
 import { blocked, currentText, expStatus } from './esporta.ts';
 import { paintUi, rowStatus } from './schermate.ts';
 import { S, emptyRow, platform } from './stato.ts';
@@ -205,14 +206,17 @@ function buildMatchPrompt(todo: readonly Todo[]): string {
  */
 export async function suggest(): Promise<number> {
   if (!S.ix) return 0;
-  const todo: Todo[] = [];
+  const todo: Todo[] = [], order = S.order, ix = S.ix;
   let n = 0, picks: Record<number, string> | null = null;
-  S.order.righe.forEach((r, i) => {
-    if (r.link && (r.link.ok || r.link.via === 'multi')) return;
-    const cands = search(S.ix, r.descrizione, S.order.mandante, 10);
+  for (let i = 0; i < order.righe.length; i++) {
+    const r = order.righe[i];
+    if (!r || (r.link && (r.link.ok || r.link.via === 'multi'))) continue;
+    const cands = search(ix, r.descrizione, order.mandante, 10);
     if (cands.length) todo.push({ i, r, cands });
-  });
-  if (!todo.length) return 0;
+    /* con un archivio grande e molte righe la ricerca dura: ogni tanto si lascia respirare la finestra */
+    if (todo.length % 8 === 7) await new Promise<void>(next => { setTimeout(next, 0); });
+  }
+  if (!todo.length || S.order !== order) return 0;
   await platform().ready;
   const reader = platform().ai.reader();
   if (reader) {
@@ -229,6 +233,8 @@ export async function suggest(): Promise<number> {
       }
     } catch { picks = null; }
   }
+  /* se nel frattempo è stato aperto un altro ordine, le proposte non lo riguardano */
+  if (S.order !== order) return 0;
   for (const t of todo) {
     let art: Article | null = null;
     const first = t.cands[0];
@@ -271,6 +277,7 @@ export function refresh(): void {
   for (const note of S.notes) nl.append(el('li', { text: note }));
   $('preview').textContent = currentText(S.profile.sep);
   paintUi(list, t);
+  saveDraftSoon();
 }
 
 /** Da chiamare a ogni modifica fatta a mano: l'ordine non è più quello esportato, né quello di esempio. */
@@ -289,7 +296,7 @@ export function wireRows(): void {
     const b = button('btnSuggest');
     b.disabled = true; b.textContent = 'Cerco in anagrafica…';
     const n = await suggest();
-    b.disabled = false; b.textContent = 'Suggerisci abbinamenti';
+    b.disabled = false; b.textContent = ''; b.append(icon('spark'), 'Suggerisci abbinamenti');
     rowStatus(n ? n + (n === 1 ? ' abbinamento proposto: confermalo o cambialo.' : ' abbinamenti proposti: confermali o cambiali.') : 'Nessun abbinamento sicuro: usa Cerca sulla riga.', n ? 'warn' : 'bad');
     S.guardShown = false;
   });

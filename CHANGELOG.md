@@ -12,51 +12,13 @@ Come si scrive una voce e come si pubblica una versione: [docs/RILASCI.md](docs/
 
 ## [Non rilasciato]
 
-La versione 1.0.0 non è ancora stata pubblicata: al momento del rilascio queste voci possono confluire nella 1.0.0 oppure diventare la versione successiva (vedi [docs/RILASCI.md](docs/RILASCI.md)).
-
-### Modificato
-
-#### Il codice è scritto in TypeScript e diviso in moduli
-
-- **Che cosa cambia.** Il codice dell'app non è più in due file JavaScript scritti a mano (`app/core.js` e `app/app.js`, quest'ultimo di quasi 1.300 righe) ma in TypeScript nella cartella `src/`, diviso per compito: logica (`src/core/`), colloquio con Anthropic (`src/anthropic/`), ambienti (`src/piattaforma/`), interfaccia (`src/ui/`), app desktop (`src/desktop/`). Uno script (`npm run compila`) produce i file che l'app esegue. Per chi usa l'app non cambia nulla di visibile: schermate, file esportato e formato della copia di sicurezza sono gli stessi.
-- **Perché.** In un file unico senza controlli gli errori si scoprono solo usando l'app. Con TypeScript vengono trovati prima dell'avvio, e la divisione in moduli impedisce per costruzione alcune confusioni: la logica non può toccare la pagina, la pagina non può usare Electron. Una prova lo fa rispettare.
-- **Che cosa devi fare.** Niente se usi l'app. Se la modifichi: serve Node.js 22.18 o successivo, e prima di aprire `app/index.html` va eseguito `npm run compila`. La nuova organizzazione è descritta in [docs/SVILUPPO.md](docs/SVILUPPO.md).
-
-#### App desktop: gli archivi sono file nella cartella dati dell'app
-
-- **Che cosa cambia.** Nell'app desktop articoli, clienti, mandanti e abbinamenti imparati non stanno più nel database interno della finestra ma in file JSON nella cartella dati dell'app (`archivi/`). Ogni salvataggio scrive un file provvisorio che solo alla fine prende il posto di quello valido.
-- **Perché.** File veri sono più facili da ritrovare e da includere nelle copie del computer, e un'interruzione a metà salvataggio non rovina l'archivio già presente.
-- **Che cosa devi fare.** Niente: al primo avvio gli archivi salvati da una versione precedente vengono letti e riscritti nel posto nuovo. La versione portatile `Ordine-Rapido.html` continua a salvarli nel browser.
-
-### Sicurezza
-
-#### App desktop: la chiave API è custodita fuori dalla finestra e cifrata
-
-- **Che cosa cambia.** Nell'app desktop la chiave API non è più salvata in chiaro tra i dati della finestra. La custodisce il processo principale: la finestra la consegna una volta e non può più rileggerla (nelle impostazioni compaiono solo gli ultimi caratteri). Se scegli di ricordarla viene scritta su disco cifrata dal sistema operativo; su un Linux senza portachiavi non viene scritta e va inserita a ogni avvio.
-- **Perché.** Una chiave in chiaro tra i dati di una pagina può essere letta da chiunque apra quei file, e da qualunque codice riesca a girare nella pagina. Tenerla nel processo principale toglie entrambe le possibilità.
-- **Che cosa devi fare.** Niente: una chiave salvata da una versione precedente viene spostata da sola al primo avvio e tolta dal posto vecchio. Nella versione portatile `Ordine-Rapido.html` la chiave resta in chiaro tra i dati del browser, perché un browser non offre un posto protetto: vedi [SECURITY.md](SECURITY.md).
-
-#### App desktop: dalla finestra non parte più nessuna richiesta di rete
-
-- **Che cosa cambia.** È il processo principale, non la finestra, a parlare con Anthropic, da una sessione di rete dedicata che raggiunge solo `api.anthropic.com`. Dalla finestra è bloccata ogni richiesta, compresa quella verso Anthropic.
-- **Perché.** Così un documento costruito apposta, anche se riuscisse a far eseguire codice nella pagina, non avrebbe né la chiave né un modo per spedire dati.
-- **Che cosa devi fare.** Niente.
-
-#### Libreria per i file Excel aggiornata
-
-- **Che cosa cambia.** La libreria che legge i file Excel (SheetJS) passa dalla versione 0.18.5 alla 0.20.3.
-- **Perché.** La versione precedente aveva due vulnerabilità note (CVE-2023-30533 e CVE-2024-22363), sfruttabili con un file Excel costruito apposta. La 0.20.3 le corregge.
-- **Che cosa devi fare.** Niente. Non serve più la cautela di aprire solo file Excel di provenienza nota per questo motivo; resta buona norma non aprire file inattesi.
-
-### Limiti noti
-
-- **Windows 11 con Smart App Control.** Su questi computer il sistema blocca i programmi non firmati, senza possibilità di proseguire: l'app desktop non parte finché i pacchetti non vengono firmati con un certificato di firma del codice. Resta utilizzabile la versione portatile `Ordine-Rapido.html`. Dettagli in [SECURITY.md](SECURITY.md).
+Nessuna modifica in attesa.
 
 ## [1.0.0] - 2026-11-27
 
 Prima versione pubblica e open source.
 
-**In breve.** Fino a oggi Ordine Rapido esisteva solo come pagina dentro Claude, dove portava il numero 3.0. Questa versione la trasforma in un'app che chiunque può scaricare e usare da sola su Windows, Linux e Mac, con licenza GPL-3.0. Per riuscirci cambia tre cose di fondo: la lettura degli ordini usa la chiave API di chi usa l'app, gli archivi restano sul dispositivo, e tutto ciò che prima veniva scaricato da internet ora viaggia insieme all'app. Si aggiunge inoltre l'archivio delle case mandanti.
+**In breve.** Fino a oggi Ordine Rapido esisteva solo come pagina dentro Claude, dove portava il numero 3.0. Questa versione la trasforma in un'app che chiunque può scaricare e usare da sola su Windows, Linux e Mac, con licenza GPL-3.0. Per riuscirci cambia tre cose di fondo: la lettura degli ordini usa la chiave API di chi usa l'app, gli archivi restano sul dispositivo, e tutto ciò che prima veniva scaricato da internet ora viaggia insieme all'app. Si aggiunge inoltre l'archivio delle case mandanti. L'ordine in lavorazione viene salvato a ogni modifica, e nell'app desktop la chiave API è custodita fuori dalla finestra, cifrata dal sistema.
 
 **Per chi usava la versione 3.0 dentro Claude.** Gli archivi caricati in quella pagina restano là e non passano da soli a questa versione: vanno ricaricati dagli elenchi esportati dal gestionale. Da qui in poi, per spostarli tra computer e versioni, c'è la copia di sicurezza.
 
@@ -92,17 +54,29 @@ Prima versione pubblica e open source.
 - **Perché.** Un'app autonoma deve poter consegnare il file.
 - **Che cosa devi fare.** Niente. **Copia righe** e **Copia CSV** restano disponibili.
 
+#### L'ordine in corso non si perde
+
+- **Che cosa cambia.** L'ordine che stai controllando viene salvato sul dispositivo a ogni modifica. Se chiudi l'app per sbaglio, o il computer si spegne, alla riapertura la schermata **Carica** avvisa che c'è un ordine aperto e **Torna all'ordine aperto** lo riporta com'era: righe, dati dell'ordine e note di lettura. I collegamenti con l'archivio vengono ricalcolati. L'ordine salvato sparisce quando premi **Nuovo ordine** o apri l'ordine di esempio.
+- **Perché.** Controllare un ordine lungo richiede tempo: non deve bastare una finestra chiusa per ricominciare da capo.
+- **Che cosa devi fare.** Niente. L'ordine in corso resta sul dispositivo, in chiaro come gli archivi: su un computer condiviso premi **Nuovo ordine** quando hai finito.
+
+#### Avviso quando qualcosa va storto
+
+- **Che cosa cambia.** Se l'app incontra un errore che non aveva previsto compare in basso un avviso che lo dice e spiega che cosa fare, invece di restare ferma senza spiegazioni.
+- **Perché.** Un errore passato in silenzio lascia nel dubbio se il lavoro fatto sia valido.
+- **Che cosa devi fare.** Niente. Se l'avviso compare, il tuo ordine è già salvato: riprova, oppure chiudi e riapri l'app.
+
 #### Dati di esempio
 
 - **Che cosa cambia.** La cartella `esempi/` contiene tre archivi di fantasia, un ordine in PDF e un messaggio, coerenti con l'ordine di prova già presente nell'app.
 - **Perché.** Chi scarica l'app deve poterla provare senza usare dati propri, e chi contribuisce deve poter lavorare senza dati reali.
 - **Che cosa devi fare.** Niente. Per provarli segui il [README](README.md#provare-con-i-dati-di-esempio).
 
-#### Prove automatiche, controllo dei dati e rilascio
+#### Codice controllato, prove automatiche, controllo dei dati e rilascio
 
-- **Che cosa cambia.** La repository contiene 21 prove sulla logica e sul progetto, una prova completa nel browser, una prova dell'app desktop, un controllo che cerca dati reali e credenziali nei file, e una procedura di rilascio che costruisce i pacchetti e prepara la bozza con queste note.
+- **Che cosa cambia.** Il codice è scritto in TypeScript e diviso in moduli con compiti separati: un controllo automatico trova gli errori prima che l'app venga avviata, e una prova impedisce che le parti si mescolino (la logica non può toccare la pagina, la pagina non può usare il sistema). La repository contiene prove sulla logica e sul progetto, prove sul processo principale dell'app desktop, una prova completa nel browser, una dell'interfaccia in modalità desktop, una dell'app desktop avviata davvero, un controllo che cerca dati reali e credenziali nei file, e una procedura di rilascio che costruisce i pacchetti e prepara la bozza con queste note.
 - **Perché.** Una modifica non deve poter rompere la regola dei codici esistenti, né far entrare dati reali nella repository, senza che qualcuno se ne accorga.
-- **Che cosa devi fare.** Niente se usi l'app. Se contribuisci, leggi [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Che cosa devi fare.** Niente se usi l'app. Se contribuisci, leggi [CONTRIBUTING.md](CONTRIBUTING.md) e [docs/SVILUPPO.md](docs/SVILUPPO.md).
 
 ### Modificato
 
@@ -135,7 +109,7 @@ Prima versione pubblica e open source.
 
 #### Dove vengono salvati archivi, abbinamenti e tracciato
 
-- **Che cosa cambia.** Fuori da Claude gli archivi sono salvati sul dispositivo, nel database del browser o dell'app desktop, che regge anche listini grandi. Se il database non è disponibile si usa la memoria locale del browser; se nemmeno quella, i dati valgono fino alla chiusura e l'app lo dice. Il tracciato e le impostazioni cambiano nome interno, da `gesacom-…` a `ordine-rapido-…`.
+- **Che cosa cambia.** Fuori da Claude gli archivi sono salvati sul dispositivo. Nell'app desktop sono file nella cartella dati dell'app, scritti in modo che un'interruzione a metà non rovini l'archivio già salvato. Nella versione portatile stanno nel database del browser, che regge anche listini grandi; se il database non è disponibile si usa la memoria locale del browser; se nemmeno quella, i dati valgono fino alla chiusura e l'app lo dice. Il tracciato e le impostazioni cambiano nome interno, da `gesacom-…` a `ordine-rapido-…`.
 - **Perché.** Lo spazio privato della pagina esiste solo dentro Claude, e la memoria locale usata come ripiego era troppo piccola per un archivio articoli completo.
 - **Che cosa devi fare.** Niente. Se nello stesso browser avevi già usato la pagina fuori da Claude, tracciato e archivi salvati con i vecchi nomi vengono letti e spostati da soli al primo avvio.
 
@@ -157,7 +131,19 @@ Prima versione pubblica e open source.
 - **Perché.** Prima il codice trovato restava anche dopo aver cambiato il nome, e nel file poteva finire il codice del cliente sbagliato.
 - **Che cosa devi fare.** Niente.
 
+#### Tabella delle righe e schermata Esporta
+
+- **Che cosa cambia.** Nella tabella delle righe il numero di riga, lo stato in archivio e il pulsante per eliminare restano sempre visibili, anche quando la tabella è più larga dello schermo e scorre di lato. Nella schermata **Esporta**, quando una riga blocca il file, il pulsante in evidenza diventa **Torna al controllo**.
+- **Perché.** Con tutte le colonne aperte, o su uno schermo stretto, lo stato della riga e il pulsante per eliminarla finivano fuori vista. E quando il file non può uscire, il passo utile è tornare a sistemare, non scaricare.
+- **Che cosa devi fare.** Niente.
+
 ### Corretto
+
+#### Confronto dell'importo quando manca un prezzo
+
+- **Che cosa cambia.** Se una riga non ha prezzo o quantità, il controllo dice «Importo merce non confrontabile con il documento» e quante righe sono incomplete.
+- **Perché.** Prima compariva un errore con due cifre uguali, per esempio «Importo merce 435,86, sul documento 435,86», che non spiegava che cosa non andava.
+- **Che cosa devi fare.** Completa il prezzo o la quantità della riga indicata, oppure eliminala.
 
 #### Avviso «riga senza codice articolo» su righe già collegate
 
@@ -181,8 +167,20 @@ Prima versione pubblica e open source.
 
 #### L'app può collegarsi a un solo indirizzo
 
-- **Che cosa cambia.** La pagina dichiara una regola del browser (Content Security Policy) che permette collegamenti soltanto verso `api.anthropic.com`. L'app desktop aggiunge un secondo blocco sulle richieste di rete, apre nel browser solo collegamenti verso siti previsti e rifiuta fotocamera, microfono e posizione.
+- **Che cosa cambia.** La pagina dichiara una regola del browser (Content Security Policy) che permette collegamenti soltanto verso `api.anthropic.com`. Nell'app desktop dalla finestra non parte nessuna richiesta di rete, nemmeno verso Anthropic: con il servizio parla solo il processo principale, da una sessione di rete dedicata che raggiunge quell'unico indirizzo. La finestra apre nel browser solo collegamenti verso siti previsti e rifiuta fotocamera, microfono e posizione.
 - **Perché.** Chiave API e archivi non devono poter uscire verso altri indirizzi, nemmeno se un documento ricevuto fosse costruito apposta per provarci.
+- **Che cosa devi fare.** Niente.
+
+#### App desktop: la chiave API è custodita fuori dalla finestra e cifrata
+
+- **Che cosa cambia.** Nell'app desktop la chiave API non resta tra i dati della finestra. La custodisce il processo principale: la finestra la consegna una volta e non può più rileggerla (nelle impostazioni compaiono solo gli ultimi caratteri). Se scegli di ricordarla viene scritta su disco cifrata dal sistema operativo; su un Linux senza portachiavi non viene scritta e va inserita a ogni avvio.
+- **Perché.** Una chiave in chiaro tra i dati di una pagina può essere letta da chiunque apra quei file, e da qualunque codice riesca a girare nella pagina. Tenerla nel processo principale toglie entrambe le possibilità.
+- **Che cosa devi fare.** Niente. Nella versione portatile `Ordine-Rapido.html` la chiave resta in chiaro tra i dati del browser, perché un browser non offre un posto protetto: vedi [SECURITY.md](SECURITY.md).
+
+#### Libreria per i file Excel senza vulnerabilità note
+
+- **Che cosa cambia.** I file Excel vengono letti con SheetJS 0.20.3.
+- **Perché.** Le versioni fino alla 0.18.5, l'ultima sul registro da cui provengono le altre librerie, hanno due vulnerabilità note (CVE-2023-30533 e CVE-2024-22363), sfruttabili con un file Excel costruito apposta. La 0.20.3, presa dal sito del produttore, le corregge.
 - **Che cosa devi fare.** Niente.
 
 #### I PDF non possono far eseguire codice
@@ -194,8 +192,7 @@ Prima versione pubblica e open source.
 ### Limiti noti
 
 - **Pacchetti per Windows e Mac non ancora provati su quei sistemi.** L'app, la versione portatile e il pacchetto Linux sono stati provati davvero. I pacchetti per Windows e Mac vengono costruiti e avviati per la prima volta dalla procedura di rilascio su GitHub, che si ferma se uno di essi non parte.
-- **Pacchetti non firmati.** Windows e Mac mostrano un avviso al primo avvio. Le istruzioni sono nel README.
-- **Libreria Excel.** È inclusa SheetJS 0.18.5, che ha due vulnerabilità note legate all'apertura di file Excel costruiti apposta (CVE-2023-30533 e CVE-2024-22363). La versione corretta non è distribuita dal registro da cui provengono le altre librerie. Finché non viene aggiornata, apri solo file Excel di cui conosci la provenienza. Dettagli in [SECURITY.md](SECURITY.md).
+- **Pacchetti non firmati.** Windows e Mac mostrano un avviso al primo avvio. Le istruzioni sono nel README. Su Windows 11 con **Smart App Control** attivo non c'è solo un avviso: il sistema blocca i programmi non firmati e l'app desktop non parte finché i pacchetti non vengono firmati con un certificato di firma del codice. Su quei computer resta utilizzabile la versione portatile `Ordine-Rapido.html`. Dettagli in [SECURITY.md](SECURITY.md).
 - **Versione portatile.** I dati sono salvati nel browser e alcuni browser li legano alla posizione del file: tienilo sempre nella stessa cartella con lo stesso nome. È stata provata con Chromium.
 - **Lettura automatica.** Richiede internet e una chiave API. Vengono lette le prime 6 pagine di un PDF e al massimo 12 immagini per ordine.
 - **Uso dentro Claude.** Il codice conserva il funzionamento come pagina dentro Claude, ma questa versione non è stata riprovata in quella forma.

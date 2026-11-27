@@ -11,7 +11,7 @@ Il codice è scritto in **TypeScript**, nella cartella `src/`, diviso in moduli 
 | `src/core/` | **Logica pura**: numeri, calcoli, controlli, abbinamento con l'archivio, tracciato e costruzione del CSV, copia di sicurezza | solo se stessa |
 | `src/anthropic/` | Colloquio con Anthropic: come si compone la richiesta e come si legge la risposta. Non spedisce nulla: riceve da fuori la funzione che lo fa | `core` |
 | `src/piattaforma/` | Gli **ambienti** in cui gira la pagina (browser, app desktop, dentro Claude) dietro un unico contratto: archivi, chiave API, lettura, salvataggio dei file | `core`, `anthropic`, il contratto del ponte |
-| `src/ui/` | Interfaccia: schermate, righe, archivio, lettura dei file, esportazione, impostazioni | tutto il precedente |
+| `src/ui/` | Interfaccia: schermate, righe, archivio, lettura dei file, esportazione, impostazioni, ordine in corso salvato, avviso per gli errori imprevisti | tutto il precedente |
 | `src/desktop/` | App desktop: processo principale (`main.ts`), ponte con la finestra (`preload.ts`, `contratto.ts`), custodia della chiave (`chiave.ts`), archivi su disco (`archivi.ts`) | `core`, `anthropic`, Electron, Node |
 
 Una prova (`test/progetto.test.mjs`) fa rispettare la colonna «Può usare»: se la logica importa qualcosa dell'interfaccia, o la pagina importa Electron, `npm test` fallisce.
@@ -74,6 +74,7 @@ La finestra carica `app/index.html` isolata (`contextIsolation`, `sandbox`, nien
 | Archivi e abbinamenti | IndexedDB, database `ordine-rapido`, contenitore `archivi`, chiavi `art`, `cli`, `man`, `alias` | `archivi/art.json`, `cli.json`, `man.json`, `abbinamenti.json` nella cartella dati |
 | Chiave API | localStorage, `ordine-rapido-lettura` | `chiave-api.bin` nella cartella dati, cifrata |
 | Modello scelto | localStorage, `ordine-rapido-lettura` | come nel browser |
+| Ordine in lavorazione | localStorage, `ordine-rapido-bozza`: salvato a ogni modifica, tolto con «Nuovo ordine» (`src/ui/bozza.ts`) | come nel browser |
 | Tracciato | localStorage, `ordine-rapido-tracciato` | come nel browser |
 | Tema, colonne visibili | localStorage, `ordine-rapido-ui` | come nel browser |
 

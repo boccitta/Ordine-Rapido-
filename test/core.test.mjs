@@ -48,6 +48,19 @@ test('totali e confronto con i totali scritti sul documento', () => {
   assert.ok(esiti.some(c => c.k === 'imp' && c.level === 'ok'));
   o.tot_colli = '14';
   assert.ok(Core.checks(o, null).some(c => c.k === 'colli' && c.level === 'bad'));
+  o.tot_imponibile = '300,00';
+  assert.match(Core.checks(o, null).find(c => c.k === 'imp' && c.level === 'bad').text, /276,26, sul documento 300,00/);
+});
+
+test('importo: con una riga senza prezzo non si mostrano due cifre uguali come se fossero diverse', () => {
+  const o = ordine({ tot_imponibile: '96,90', righe: [
+    riga({ cod_articolo: '300101', quantita: '120', prezzo: '0,85', sc1: '5' }),
+    riga({ descrizione: 'FUNGHI TRIFOLATI VASO', quantita: '12' })] });
+  const importo = Core.checks(o, null).find(c => c.k === 'imp');
+  assert.equal(importo.level, 'warn');
+  assert.match(importo.text, /non confrontabile.*1 riga senza prezzo o quantità/);
+  o.righe[1].prezzo = '1,00';
+  assert.equal(Core.checks(o, null).find(c => c.k === 'imp').level, 'bad', 'con tutte le righe complete il confronto torna a valere');
 });
 
 test('abbinamento con l\'archivio: per codice, senza zeri iniziali, per EAN, per abbinamento imparato', () => {

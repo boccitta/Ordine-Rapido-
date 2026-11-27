@@ -28,7 +28,7 @@ Le correzioni di sicurezza arrivano solo sull'ultima versione pubblicata.
 
 ### Gli archivi sono salvati in chiaro; la chiave API è cifrata solo nell'app desktop
 
-Gli archivi (articoli, clienti, mandanti) sono salvati senza cifratura: chiunque abbia accesso al tuo computer con il tuo utente può leggerli.
+Gli archivi (articoli, clienti, mandanti) sono salvati senza cifratura: chiunque abbia accesso al tuo computer con il tuo utente può leggerli. Lo stesso vale per l'ordine in lavorazione, che l'app salva a ogni modifica per non fartelo perdere: resta sul dispositivo finché non premi **Nuovo ordine**.
 
 La chiave API dipende da come usi l'app:
 

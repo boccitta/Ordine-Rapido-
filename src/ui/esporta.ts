@@ -50,7 +50,11 @@ export function paintExport(): void {
     : state === 'done' ? 'Ora importalo nel gestionale. Per un altro ordine premi Nuovo ordine.' : 'Scaricalo, oppure copia le righe, e importalo nel gestionale.';
   const ic = $('readyIcon'); ic.textContent = ''; ic.append(icon(state === 'done' ? 'ok' : state === 'ready' ? 'file' : 'alert'));
   $('fileName').textContent = o.righe.length ? fileName(o) : '';
-  $('btnFix').hidden = state === 'ready' || state === 'done';
+  /* il pulsante in evidenza è sempre il prossimo passo utile: scaricare, sistemare, oppure cominciare un altro ordine */
+  const canExport = state === 'ready' || state === 'done';
+  $('btnFix').hidden = canExport;
+  $('btnFix').classList.toggle('primary', !canExport);
+  $('btnDownload').classList.toggle('primary', state === 'ready');
   $('btnNew').classList.toggle('primary', state === 'done');
 }
 

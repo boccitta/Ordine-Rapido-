@@ -237,7 +237,12 @@ table{border-collapse:separate;border-spacing:0;width:100%}
 th{font:600 12.5px/1.3 var(--body);color:var(--muted);text-align:left;padding:9px 6px;background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap}
 td{padding:2px 3px;border-bottom:1px solid var(--line);vertical-align:middle}
 tr:last-child td{border-bottom:0}
-tbody tr:hover td{background:var(--surface-2)}
+tbody tr:hover td,#rowsTable tbody tr:hover td{background:var(--surface-2)}
+/* Numero di riga, stato in archivio ed «elimina» restano visibili quando la tabella scorre di lato. */
+#rowsTable th:first-child,#rowsTable td:first-child{position:sticky;left:0;z-index:2;width:36px;min-width:36px;max-width:36px}
+#rowsTable th:nth-child(2),#rowsTable td:nth-child(2){position:sticky;left:36px;z-index:2;box-shadow:1px 0 0 var(--line)}
+#rowsTable th:last-child,#rowsTable td:last-child{position:sticky;right:0;z-index:2;box-shadow:-1px 0 0 var(--line)}
+#rowsTable td:first-child,#rowsTable td:nth-child(2),#rowsTable td:last-child{background:var(--surface)}
 td input[type=text]{border-color:transparent;background:transparent;padding:6px 5px;border-radius:7px;font-size:13.5px;font-weight:500}
 td input[type=text]:hover{border-color:var(--line)}
 td input[type=text]:focus-visible{background:var(--surface)}
@@ -245,13 +250,13 @@ td input.desc{min-width:20ch;text-overflow:ellipsis}
 td input.note{min-width:18ch}
 td input.code{min-width:8.6ch;font-weight:700} td input.ean{min-width:14ch} td input.um{width:4.6ch;min-width:4.6ch}
 td input.n{min-width:5.8ch;text-align:right} td input.p{min-width:4.4ch;text-align:right}
-@media (min-width:1280px){td input.desc{min-width:34ch} td input.n{min-width:6.6ch} td input.p{min-width:5ch} td input.code{min-width:9.6ch}}
+@media (min-width:1280px){td input.desc{min-width:28ch} td input.n{min-width:6.2ch} td input.p{min-width:4.8ch} td input.code{min-width:9.2ch}}
 th.r,td.r{text-align:right}
 #rowsTable th.c-descrizione{width:100%}
 td.calc{font-size:13.5px;white-space:nowrap;padding:2px 8px;font-weight:700}
 td.calc.diff{background:var(--warn-soft);color:var(--warn)}
 td.idx{font-size:12px;color:var(--muted);padding:2px 4px 2px 12px;text-align:right}
-tr.gift td,tbody tr.gift:hover td{background:var(--accent-soft)}
+tr.gift td,tbody tr.gift:hover td,#rowsTable tr.gift td,#rowsTable tbody tr.gift:hover td{background:var(--accent-soft)}
 tr.gift td.c-netto{color:var(--muted);font-weight:500}
 td.c{text-align:center}
 td button.del{border-color:transparent;background:transparent;color:var(--muted);padding:4px 8px;font-size:13px}
@@ -304,6 +309,13 @@ button.okbtn:hover{filter:brightness(.94)}
 .sum{display:flex;flex-wrap:wrap;gap:2px 20px;color:var(--muted)}
 .sum b{color:var(--ink);font-weight:700;font-size:16px}
 .ready .row{margin-top:8px}
+/* Quando il file non può uscire, il primo pulsante è quello che riporta a sistemare. */
+.ready[data-state=blocked] #btnFix,.ready[data-state=empty] #btnFix{order:-1}
+/* Avviso per un errore imprevisto: resta in basso finché non viene chiuso. */
+.oops{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:50;display:flex;gap:12px;align-items:center;max-width:min(680px,calc(100vw - 24px));
+  background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);border-radius:14px;padding:10px 12px 10px 16px;font-size:14px;font-weight:500;box-shadow:var(--shadow)}
+.oops[hidden]{display:none}
+.oops button{flex:none}
 .no-dl .ready #btnTsv{background:linear-gradient(180deg,var(--accent-2),var(--accent));border-color:transparent;color:var(--accent-ink);font-weight:700;padding:12px 22px;font-size:15.5px;border-radius:12px;min-height:48px}
 .howto{padding:18px 20px 20px;display:grid;gap:12px}
 .howto h3{font:700 16px/1.3 var(--display);letter-spacing:-.01em}

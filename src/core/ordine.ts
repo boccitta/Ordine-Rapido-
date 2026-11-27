@@ -78,8 +78,9 @@ export function checks(order: Order, ctx?: CheckContext | null): Check[] {
   if (diff.length) out.push({ level: 'warn', text: 'Netto o totale diverso dal documento: riga ' + diff.join(', ') });
   const ti = num(order.tot_imponibile), tc = num(order.tot_colli), tp = num(order.tot_pezzi);
   if (ti !== null) {
-    const okI = Math.abs(ti - t.merce) <= 0.02 && !t.incompleti;
-    out.push(okI ? { k: 'imp', level: 'ok', text: 'Importo merce ' + show(ti, 'money') + ' come sul documento' }
+    /* con righe senza prezzo o quantità l'importo calcolato è parziale: dirlo, invece di mostrare due cifre da confrontare */
+    if (t.incompleti) out.push({ k: 'imp', level: 'warn', text: 'Importo merce non confrontabile con il documento: ' + t.incompleti + (t.incompleti === 1 ? ' riga senza prezzo o quantità' : ' righe senza prezzo o quantità') });
+    else out.push(Math.abs(ti - t.merce) <= 0.02 ? { k: 'imp', level: 'ok', text: 'Importo merce ' + show(ti, 'money') + ' come sul documento' }
                  : { k: 'imp', level: 'bad', text: 'Importo merce ' + show(round(t.merce, 2), 'money') + ', sul documento ' + show(ti, 'money') });
   }
   if (tc !== null) out.push(Math.abs(tc - t.colli) < 0.001 ? { k: 'colli', level: 'ok', text: show(tc, 'qty') + ' colli come sul documento' }

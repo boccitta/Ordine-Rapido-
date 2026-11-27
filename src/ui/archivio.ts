@@ -62,13 +62,17 @@ export function renderArchInfo(): void {
 /* ---------- Abbinamenti imparati: si salvano poco dopo l'ultima modifica, uno alla volta ---------- */
 let aliasTimer: ReturnType<typeof setTimeout> | undefined;
 let aliasChain: Promise<void> = Promise.resolve();
+function saveAliasNow(): void {
+  clearTimeout(aliasTimer); aliasTimer = undefined;
+  aliasChain = aliasChain.then(() => platform().store.saveAlias(S.arch))
+    .catch(() => { archStatus('Non sono riuscito a salvare gli abbinamenti imparati. Valgono fino alla chiusura della pagina.', 'warn'); });
+}
 export function saveAliasSoon(): void {
   clearTimeout(aliasTimer);
-  aliasTimer = setTimeout(() => {
-    aliasChain = aliasChain.then(() => platform().store.saveAlias(S.arch))
-      .catch(() => { archStatus('Non sono riuscito a salvare gli abbinamenti imparati. Valgono fino alla chiusura della pagina.', 'warn'); });
-  }, 700);
+  aliasTimer = setTimeout(saveAliasNow, 700);
 }
+/** Se c'è un salvataggio in attesa lo fa subito: serve quando la pagina sta per chiudersi. */
+function flushAlias(): void { if (aliasTimer !== undefined) saveAliasNow(); }
 
 /** Mette in uso un archivio appena caricato o ripristinato: indice degli articoli, collegamenti, schermate. */
 function useArchive(): void {
@@ -255,6 +259,7 @@ export function wireArchive(): void {
     field.value = '';
     if (file) void chosenArchiveFile(file);
   });
+  window.addEventListener('pagehide', flushAlias);
   $('btnBackup').addEventListener('click', () => { void saveBackup(); });
   $('btnRestore').addEventListener('click', () => input('backupFile').click());
   input('backupFile').addEventListener('change', () => {

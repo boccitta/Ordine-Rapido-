@@ -160,6 +160,21 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
     assert.equal(await page.locator('#tbody .pill.ok').count(), 6);
     passo('riga fuori archivio: esportazione bloccata finché non viene collegata; il suggerimento propone un articolo esistente');
 
+    /* 9b. L'ordine in corso non si perde: dopo una chiusura improvvisa si ritrova, con le righe e i collegamenti */
+    await page.waitForTimeout(900);
+    await page.reload();
+    await page.waitForFunction(() => document.getElementById('archChip').dataset.state !== 'load');
+    assert.equal(await page.isVisible('#openNote'), true, 'alla riapertura l\'app dice che c\'è un ordine aperto');
+    await page.click('#btnResume');
+    assert.equal(await page.locator('#tbody tr').count(), 6);
+    assert.equal(await page.inputValue('#r5-descrizione'), 'FUNGHI TRIFOLATI VASO');
+    assert.equal(await page.inputValue('#r5-quantita'), '12');
+    assert.equal(await page.inputValue('#h-cliente_cod'), 'C0012');
+    assert.match(await page.textContent('#srcInfo'), /ordine-esempio\.pdf/);
+    await page.waitForFunction(() => document.querySelectorAll('#tbody .pill.ok').length === 6);
+    assert.ok(!(await page.evaluate(() => localStorage.getItem('ordine-rapido-bozza'))).includes('"link"'), 'i collegamenti non si salvano: si ricalcolano dall\'archivio');
+    passo('ordine in corso ritrovato dopo la chiusura; i collegamenti vengono ricalcolati dall\'archivio');
+
     /* 10. Copia di sicurezza: contiene gli archivi, mai la chiave; si può ripristinare */
     await page.click('#archChip');
     const copia = await scarica(page, '#btnBackup');
@@ -198,6 +213,10 @@ function passo(nome) { passi.push(nome); console.log('  ok  ' + nome); }
     const altre = esterne.filter(u => !u.startsWith('https://api.anthropic.com/'));
     assert.deepEqual(altre, [], 'richieste verso altri siti');
     assert.deepEqual(problemi.filter(p => !/401/.test(p)), [], 'errori nella pagina');
+    assert.equal(await page.isVisible('#oops'), false, 'nessun avviso di errore imprevisto');
+    /* «Nuovo ordine» chiude davvero l'ordine: non deve ricomparire alla riapertura */
+    await page.click('#rail3'); await page.click('#btnNew');
+    await page.waitForFunction(() => localStorage.getItem('ordine-rapido-bozza') === null);
     passo('nessuna richiesta verso altri siti, nessun errore nella pagina');
 
     console.log('\nTutto bene: ' + passi.length + ' prove superate su ' + PAGE);
