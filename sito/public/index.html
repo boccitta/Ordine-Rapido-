@@ -12,7 +12,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ordine Rapido · dall'ordine del cliente al file per il gestionale</title>
-<meta name="description" content="Ordine Rapido trasforma gli ordini dei clienti (PDF, Excel, messaggi, foto) nel file che il tuo gestionale importa, con soli codici che esistono già. Legge sul tuo computer, senza chiave API. Gratuito e libero.">
+<meta name="description" content="Ordine Rapido trasforma gli ordini dei clienti (PDF, Excel, messaggi, foto) nel file che il tuo gestionale importa, con soli codici che esistono già. Legge sul tuo computer, senza chiave API, e impara da ogni ordine. Claude, Gemini o GPT a scelta. Gratuito e libero.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#F6F3EC">
 <link rel="icon" href="marchio.svg" type="image/svg+xml">
@@ -117,6 +117,17 @@ h1 span{display:block;color:var(--muted);font-weight:700}
 .stato b{font:600 15.5px var(--body);color:var(--ink)}
 .stato p{grid-column:2;font-size:14.5px;color:var(--muted);line-height:1.45}
 
+.ricetta{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;transform:rotate(.6deg)}
+.ricetta header{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;padding:14px 18px;background:var(--ink);color:var(--paper)}
+.ricetta header b{font:800 15.5px var(--display);letter-spacing:-.01em}
+.ricetta header span{font:500 12.5px var(--mono);color:var(--cyan)}
+.ricetta ul{list-style:none;margin:0;padding:8px 18px}
+.ricetta li{display:grid;grid-template-columns:5.5em 1.4em minmax(0,1fr);align-items:center;padding:9px 0;border-bottom:1px dashed var(--line);font-size:15.5px;color:var(--ink)}
+.ricetta li:last-child{border-bottom:0}
+.ricetta code{font:600 14px var(--mono);background:var(--paper-2);border:1px solid var(--line);border-radius:6px;padding:2px 7px;justify-self:start}
+.ricetta i{font-style:normal;color:var(--cyan-ink);font-weight:700}
+.ricetta em{color:var(--muted)}
+.ricetta footer{padding:12px 18px;border-top:1px solid var(--line);background:var(--paper-2);font-size:14px;color:var(--muted)}
 .passi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:40px}
 .passi figure{margin:0}
 .passi img{border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);background:var(--card)}
@@ -189,7 +200,7 @@ footer.fine .marchio img{width:28px;height:28px}
     <a class="marchio" href="#" aria-label="Ordine Rapido, inizio pagina"><img src="marchio.svg" alt="" width="38" height="38">Ordine Rapido</a>
     <nav aria-label="Sezioni">
       <a href="#come">Come lavora</a>
-      <a href="#legge">Senza chiave API</a>
+      <a href="#impara">Impara</a>
       <a href="#averla">Come averla</a>
       <a href="#domande">Domande</a>
     </nav>
@@ -209,7 +220,7 @@ footer.fine .marchio img{width:28px;height:28px}
       <dl class="fatti">
         <div><dt>0</dt><dd>chiavi API da comprare: legge da sola, sul tuo computer</dd></div>
         <div><dt>0</dt><dd>codici inventati: nel file solo quelli del tuo archivio</dd></div>
-        <div><dt>3</dt><dd>schermate, sempre le stesse: carica, controlla, esporta</dd></div>
+        <div><dt>1</dt><dd>ordine controllato basta perché il prossimo dello stesso cliente si legga da solo</dd></div>
       </dl>
     </div>
 
@@ -320,8 +331,36 @@ footer.fine .marchio img{width:28px;height:28px}
     </div>
   </section>
 
-  <section class="cap" id="legge" aria-labelledby="h-legge">
+  <section class="cap" id="impara" aria-labelledby="h-impara">
     <div class="num" aria-hidden="true">04</div>
+    <div>
+      <h2 id="h-impara">Ogni ordine che esporti le insegna a leggere il prossimo.</h2>
+      <p class="attacco">Un cliente manda gli ordini quasi sempre nello stesso modo. Quando esporti un suo ordine, Ordine Rapido confronta il documento con il risultato che hai controllato e se ne ricorda la ricetta. Dal secondo ordine in poi, quel cliente si legge da solo.</p>
+      <div class="due">
+        <div class="ricetta" role="img" aria-label="Esempio di ricetta di un cliente: le colonne del suo documento e che cosa contengono.">
+          <header><b>MARKET FANTASIA S.R.L.</b><span>imparata da 3 ordini</span></header>
+          <ul aria-hidden="true">
+            <li><code>Rif.</code><i>→</i>codice articolo</li>
+            <li><code>Merce</code><i>→</i>descrizione</li>
+            <li><code>Q</code><i>→</i>quantità in pezzi</li>
+            <li><code>Cf</code><i>→</i>colli</li>
+            <li><code>Euro</code><i>→</i>prezzo</li>
+            <li><code>Timbro</code><i>→</i><em>da ignorare</em></li>
+          </ul>
+          <footer>Nei messaggi, «passata 10» vuol dire 10 cartoni.</footer>
+        </div>
+        <ul class="punti">
+          <li><b>Impara le colonne strane</b><span>«Q», «Cf», «Euro», «Rif.»: nomi che nessuna regola conosce, ma che dopo un ordine controllato non servono più a niente spiegare.</span></li>
+          <li><b>Impara gli abbinamenti</b><span>La descrizione che il cliente scrive a modo suo si collega da sola all'articolo giusto, anche se una foto ne sbaglia qualche lettera.</span></li>
+          <li><b>Impara come scrive</b><span>Se nei suoi messaggi un numero da solo vuol dire cartoni, la prossima volta lo mette tra i colli senza chiedere.</span></li>
+          <li><b>Resta tutto da te</b><span>Le ricette stanno insieme all'archivio, finiscono nella copia di sicurezza e si dimenticano con un clic.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="cap" id="legge" aria-labelledby="h-legge">
+    <div class="num" aria-hidden="true">05</div>
     <div>
       <h2 id="h-legge">Legge da sola. Senza chiave API, senza internet, senza costi.</h2>
       <p class="attacco">Non c'è un servizio a cui mandare i documenti dei tuoi clienti. La lettura avviene sul tuo computer, con regole che partono dal tuo archivio. Funziona anche su un PC non recente.</p>
@@ -344,8 +383,9 @@ footer.fine .marchio img{width:28px;height:28px}
             </ul>
           </div>
           <div class="riquadro tenue">
-            <h3>Vuoi di più? Puoi aggiungere Claude</h3>
-            <p>Per le calligrafie difficili e i documenti impaginati in modo insolito puoi far leggere a Claude, con la tua chiave API di Anthropic. È una scelta nelle impostazioni, non un obbligo: senza chiave l'app fa già tutto il resto.</p>
+            <h3>Vuoi di più? Claude, Gemini o GPT, a scelta</h3>
+            <p>Per le calligrafie difficili e i documenti impaginati in modo insolito puoi aggiungere l'intelligenza artificiale che preferisci, con la tua chiave API: <b>Claude</b> di Anthropic, <b>Gemini</b> di Google o <b>GPT</b> di OpenAI, e il modello che vuoi tra quelli del tuo account.</p>
+            <p>In modalità <b>automatica</b> legge prima il tuo computer, e chiede all'intelligenza artificiale solo quando la lettura è incompleta. Paghi e invii qualcosa solo quando serve davvero.</p>
           </div>
         </div>
       </div>
@@ -353,7 +393,7 @@ footer.fine .marchio img{width:28px;height:28px}
   </section>
 
   <section class="cap" aria-labelledby="h-mestieri">
-    <div class="num" aria-hidden="true">05</div>
+    <div class="num" aria-hidden="true">06</div>
     <div>
       <h2 id="h-mestieri">Va bene per ogni tipo di lavoro. Cambiano i dati, non l'app.</h2>
       <p class="attacco">Ordine Rapido non sa niente di pasta o di bulloni: sa leggere un ordine e confrontarlo con un archivio. Quello che vendi lo decidono i file che le carichi.</p>
@@ -369,19 +409,19 @@ footer.fine .marchio img{width:28px;height:28px}
   </section>
 
   <section class="cap" aria-labelledby="h-dati">
-    <div class="num" aria-hidden="true">06</div>
+    <div class="num" aria-hidden="true">07</div>
     <div>
       <h2 id="h-dati">Clienti, listini e ordini restano dove sono: da te.</h2>
       <div class="dati">
         <div><b>Nessun server</b><span>L'app gira sul tuo computer. Non c'è un sito a cui iscriversi né un account da creare.</span></div>
-        <div><b>Niente esce</b><span>Con la lettura sul dispositivo nessun documento viene inviato. Non ci sono statistiche d'uso né tracciamento.</span></div>
+        <div><b>Niente esce, se non vuoi</b><span>Con la lettura sul dispositivo nessun documento viene inviato. Se scegli un'intelligenza artificiale, parte solo verso quella. Non ci sono statistiche d'uso né tracciamento.</span></div>
         <div><b>Codice aperto</b><span>È software libero con licenza GPL-3.0: chiunque può controllare che cosa fa, riga per riga.</span></div>
       </div>
     </div>
   </section>
 
   <section class="cap" id="averla" aria-labelledby="h-averla">
-    <div class="num" aria-hidden="true">07</div>
+    <div class="num" aria-hidden="true">08</div>
     <div>
       <h2 id="h-averla">Quattro forme, la stessa app.</h2>
       <p class="attacco">È gratuita. Scegli la forma più comoda per il computer che usi.</p>
@@ -396,14 +436,14 @@ footer.fine .marchio img{width:28px;height:28px}
   </section>
 
   <section class="cap" id="domande" aria-labelledby="h-domande">
-    <div class="num" aria-hidden="true">08</div>
+    <div class="num" aria-hidden="true">09</div>
     <div>
       <h2 id="h-domande">Quello che conviene sapere prima.</h2>
       <div class="domande">
-        <details><summary>Quanto costa?</summary><p>Niente. È software libero e gratuito. Paghi qualcosa solo se scegli di far leggere gli ordini a Claude: in quel caso il costo di ogni lettura è addebitato da Anthropic alla tua chiave.</p></details>
+        <details><summary>Quanto costa?</summary><p>Niente. È software libero e gratuito. Paghi qualcosa solo se scegli di far leggere gli ordini a un'intelligenza artificiale: in quel caso il costo di ogni lettura lo addebita il servizio scelto (Anthropic, Google o OpenAI) al tuo account. In modalità automatica succede solo quando la lettura del computer non basta.</p></details>
         <details><summary>Con quali gestionali funziona?</summary><p>Con quelli che importano gli ordini da un file CSV o Excel. Il file si adatta caricando un esempio del formato richiesto. È nata lavorando con GesACom, ma non dipende da un gestionale in particolare e non scrive mai dentro il gestionale: prepara il file, l'importazione la fai tu.</p></details>
         <details><summary>Serve internet?</summary><p>No, se legge il tuo computer. Serve solo se scegli Claude.</p></details>
-        <details><summary>E se l'ordine è scritto a mano?</summary><p>La lettura sul computer riconosce bene i documenti stampati, meno la calligrafia. Con un biglietto scritto a penna trova di solito una parte delle righe e te lo segnala: puoi completarle tu, oppure far leggere a Claude.</p></details>
+        <details><summary>E se l'ordine è scritto a mano?</summary><p>La lettura sul computer riconosce bene i documenti stampati, meno la calligrafia. Con un biglietto scritto a penna trova di solito una parte delle righe e te lo segnala: puoi completarle tu, oppure far leggere a Claude, Gemini o GPT.</p></details>
         <details><summary>Posso provarla senza usare dati veri?</summary><p>Sì. C'è un ordine di esempio con dati di fantasia, e la cartella del progetto contiene archivi inventati per fare tutte le prove.</p></details>
         <details><summary>Che cosa succede se sbaglia?</summary><p>Per questo c'è la schermata «Controlla». L'app trascrive e confronta, non decide al posto tuo: una riga che non corrisponde a un articolo del tuo archivio blocca l'esportazione, e ogni supposizione è scritta tra le note.</p></details>
       </div>
