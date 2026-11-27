@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<!--
+  Ordine Rapido - sito di presentazione. Una pagina sola, senza script e senza risorse prese da altri siti:
+  caratteri, immagini e marchio stanno in questa cartella. Si pubblica così com'è (su Render: Root Directory «sito», Publish Directory «public»; vedi sito/LEGGIMI.md).
+  Copyright (C) 2026 Roberto Murenu. I testi e la grafica di questa pagina seguono la licenza del progetto (GNU GPL versione 3).
+
+  Quando esisterà una pagina pubblica da cui scaricare l'app, metti il suo indirizzo al posto di «#averla»
+  nei due collegamenti con la classe «scarica».
+-->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ordine Rapido · dall'ordine del cliente al file per il gestionale</title>
+<meta name="description" content="Ordine Rapido trasforma gli ordini dei clienti (PDF, Excel, messaggi, foto) nel file che il tuo gestionale importa, con soli codici che esistono già. Legge sul tuo computer, senza chiave API. Gratuito e libero.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F6F3EC">
+<link rel="icon" href="marchio.svg" type="image/svg+xml">
+<style>
+@font-face{font-family:Figtree;src:url(fonts/figtree-latin-wght-normal.woff2) format("woff2");font-weight:300 900;font-display:swap}
+@font-face{font-family:Montserrat;src:url(fonts/montserrat-latin-wght-normal.woff2) format("woff2");font-weight:100 900;font-display:swap}
+:root{
+  --paper:#F6F3EC;--paper-2:#EFEBE1;--card:#FFFFFF;--ink:#0B1E49;--text:#27324F;--muted:#5D6783;--line:#DCD7CB;--line-2:#C9C3B4;
+  --cyan:#12CFFB;--cyan-ink:#086F8E;--cyan-soft:#DDF6FD;--ok:#15803D;--ok-soft:#DFF3E5;--warn:#B45309;--warn-soft:#FCEBCB;--bad:#B4232A;--bad-soft:#FBE1E0;
+  --shadow:0 1px 0 rgba(11,30,73,.04),0 18px 40px -22px rgba(11,30,73,.35);
+  --display:Montserrat,"Segoe UI",system-ui,sans-serif;--body:Figtree,"Segoe UI",system-ui,sans-serif;--mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#0C1530;--paper-2:#101B3B;--card:#14214A;--ink:#F2F5FC;--text:#D5DCEE;--muted:#9CA8C6;--line:#24345F;--line-2:#31447A;
+  --cyan-ink:#6FDFFC;--cyan-soft:#12305A;--ok:#5FD38A;--ok-soft:#143A2C;--warn:#F5B95A;--warn-soft:#3F2E12;--bad:#FF8F8F;--bad-soft:#44191C;
+  --shadow:0 1px 0 rgba(0,0,0,.2),0 22px 44px -24px rgba(0,0,0,.8);
+}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--text);font:17px/1.6 var(--body);-webkit-font-smoothing:antialiased}
+img{max-width:100%;height:auto;display:block}
+a{color:var(--cyan-ink);text-underline-offset:3px}
+a:focus-visible,summary:focus-visible{outline:3px solid var(--cyan);outline-offset:3px;border-radius:6px}
+h1,h2,h3{font-family:var(--display);color:var(--ink);margin:0;letter-spacing:-.025em;line-height:1.08;text-wrap:balance}
+p{margin:0}
+.wrap{width:min(1120px,100% - 40px);margin-inline:auto}
+.salta{position:absolute;left:-999px}.salta:focus{left:16px;top:12px;background:var(--card);padding:8px 12px;border-radius:8px;z-index:9}
+
+/* Testata: solo il marchio e tre rimandi */
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 0}
+.marchio{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);font:italic 800 21px/1 var(--display);letter-spacing:-.02em}
+.marchio img{width:38px;height:38px}
+.top nav{display:flex;gap:26px;font-size:15px}
+.top nav a{color:var(--muted);text-decoration:none;font-weight:500}
+.top nav a:hover{color:var(--ink)}
+
+/* Apertura: a sinistra la promessa, a destra l'ordine che diventa file */
+.apri{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,1fr);gap:56px;align-items:center;padding:44px 0 72px}
+.occhiello{font:500 13px/1.4 var(--mono);color:var(--muted);letter-spacing:.02em;text-transform:uppercase;margin-bottom:22px}
+.occhiello b{color:var(--cyan-ink);font-weight:600}
+h1{font-size:clamp(36px,4.7vw,58px);font-weight:800}
+h1 span{display:block;color:var(--muted);font-weight:700}
+.sotto{font-size:19px;max-width:33em;margin-top:24px;color:var(--text)}
+.azioni{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center;margin-top:32px}
+.bottone{display:inline-flex;align-items:center;gap:10px;background:var(--ink);color:var(--paper);font:700 16px var(--display);padding:15px 24px;border-radius:12px;text-decoration:none;letter-spacing:-.01em}
+.bottone:hover{background:var(--cyan);color:#0B1E49}
+.bottone svg{width:18px;height:18px}
+.azioni .piano{font-weight:600;color:var(--ink)}
+.fatti{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:44px;padding-top:24px;border-top:1px solid var(--line-2);max-width:560px}
+.fatti dt{font:800 30px/1 var(--display);color:var(--ink);letter-spacing:-.03em}
+.fatti dd{margin:6px 0 0;font-size:14px;line-height:1.35;color:var(--muted)}
+
+.scena{position:relative;min-height:470px}
+.biglietto,.file{position:absolute;border-radius:16px;box-shadow:var(--shadow)}
+.biglietto{left:0;top:6px;width:63%;background:#FFFBE9;color:#2B2A26;padding:20px 22px 22px;transform:rotate(-2.4deg);font:500 16px/1.75 var(--body);border:1px solid #EADFAE}
+.biglietto small{display:block;font:500 11.5px var(--mono);color:#8A8163;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px}
+.biglietto s{color:#9A927A}
+.biglietto mark{background:#FDE68A;color:inherit;padding:0 3px;border-radius:3px}
+.freccia{position:absolute;left:41%;top:39%;width:120px;height:110px;color:var(--cyan-ink)}
+.file{right:0;bottom:0;width:86%;background:var(--card);border:1px solid var(--line);overflow:hidden}
+.file header{display:flex;align-items:center;gap:9px;padding:11px 16px;border-bottom:1px solid var(--line);font:600 12.5px var(--mono);color:var(--muted);background:var(--paper-2)}
+.file header i{width:9px;height:9px;border-radius:50%;background:var(--ok);flex:none}
+.file table{width:100%;border-collapse:collapse;font:500 13px/1.3 var(--mono)}
+.file th{text-align:left;font-weight:600;color:var(--muted);padding:10px 12px 6px;font-size:11.5px}
+.file td{padding:9px 12px;border-top:1px solid var(--line);color:var(--ink);white-space:nowrap}
+.file td:nth-child(n+3),.file th:nth-child(n+3){text-align:right}
+.file td:nth-child(2){white-space:normal;color:var(--text);font-family:var(--body);font-size:13.5px}
+.si{color:var(--ok);font-weight:700;margin-right:5px}
+.dono{font:600 11px var(--body);background:var(--cyan-soft);color:var(--cyan-ink);padding:2px 7px;border-radius:99px;margin-left:6px;white-space:nowrap}
+.file footer{padding:10px 16px;border-top:1px solid var(--line);font:500 12.5px var(--body);color:var(--muted);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.file footer b{color:var(--ok);font-weight:600}
+@media (prefers-reduced-motion:no-preference){
+  .file tbody tr{opacity:0;animation:riga .5s ease-out forwards}
+  .file tbody tr:nth-child(1){animation-delay:.5s}.file tbody tr:nth-child(2){animation-delay:.85s}.file tbody tr:nth-child(3){animation-delay:1.2s}
+  @keyframes riga{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+}
+
+/* Che cosa entra */
+.entra{border-block:1px solid var(--line-2);background:var(--paper-2)}
+.entra ul{list-style:none;margin:0;padding:18px 0;display:flex;flex-wrap:wrap;gap:10px 30px;align-items:center;font:500 14.5px var(--mono);color:var(--muted)}
+.entra li:first-child{color:var(--ink);font:700 14.5px var(--body)}
+.entra li:last-child{margin-left:auto;color:var(--ink);font:600 14.5px var(--body)}
+
+/* Capitoli numerati */
+.cap{display:grid;grid-template-columns:132px minmax(0,1fr);gap:0 28px;padding:92px 0 0}
+.num{font:800 64px/0.9 var(--display);color:transparent;-webkit-text-stroke:1.5px var(--line-2);letter-spacing:-.04em;padding-top:4px}
+.cap h2{font-size:clamp(28px,3.6vw,44px);font-weight:800;max-width:17em}
+.cap .attacco{font-size:19px;max-width:38em;margin-top:18px}
+.due{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:44px;align-items:start;margin-top:40px}
+.due.rov{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}
+.punti{list-style:none;margin:0;padding:0;display:grid;gap:20px}
+.punti li{padding-left:20px;border-left:3px solid var(--cyan)}
+.punti b{display:block;font:700 17.5px/1.3 var(--display);color:var(--ink);letter-spacing:-.01em;margin-bottom:3px}
+.punti span{color:var(--text);font-size:16px}
+.finestra{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;margin:0}
+.finestra figcaption{padding:11px 16px;font-size:13.5px;color:var(--muted);border-top:1px solid var(--line)}
+
+.stati{display:grid;gap:10px;margin-top:6px}
+.stato{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.pill{font:700 12.5px var(--body);padding:4px 11px;border-radius:99px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.forse{background:var(--warn-soft);color:var(--warn)}.pill.no{background:var(--bad-soft);color:var(--bad)}
+.stato b{font:600 15.5px var(--body);color:var(--ink)}
+.stato p{grid-column:2;font-size:14.5px;color:var(--muted);line-height:1.45}
+
+.passi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:40px}
+.passi figure{margin:0}
+.passi img{border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);background:var(--card)}
+.passi h3{font-size:19px;font-weight:700;margin:16px 0 6px}
+.passi h3 i{font:600 13px var(--mono);color:var(--cyan-ink);font-style:normal;margin-right:8px}
+.passi p{font-size:15.5px;color:var(--text)}
+.grande{margin-top:26px}
+
+.letture{width:100%;border-collapse:collapse;margin-top:6px;font-size:15.5px}
+.letture th,.letture td{text-align:left;padding:13px 14px 13px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.letture th{font:700 15.5px var(--display);color:var(--ink);white-space:nowrap;width:1%;padding-right:26px}
+.riquadro{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;display:grid;gap:10px}
+.riquadro h3{font-size:19px;font-weight:700}
+.riquadro p,.riquadro li{font-size:15.5px}
+.riquadro ul{margin:0;padding-left:18px;display:grid;gap:6px}
+.riquadro+.riquadro{margin-top:16px}
+.riquadro.tenue{background:transparent;border-style:dashed;border-color:var(--line-2)}
+
+.mestieri{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin-top:40px;border-top:1px solid var(--line-2);border-left:1px solid var(--line-2)}
+.mestieri div{padding:22px 22px 24px;border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
+.mestieri b{display:block;font:700 17px var(--display);color:var(--ink);margin-bottom:6px;letter-spacing:-.01em}
+.mestieri span{font-size:15px;color:var(--muted);line-height:1.45;display:block}
+.mestieri code{font:500 13px var(--mono);color:var(--cyan-ink)}
+
+.dati{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:40px}
+.dati div{background:var(--ink);color:var(--paper);border-radius:16px;padding:24px}
+.dati b{display:block;font:800 21px/1.2 var(--display);letter-spacing:-.02em;margin-bottom:8px}
+.dati span{font-size:15.5px;opacity:.86;line-height:1.5;display:block}
+
+.forme{list-style:none;margin:40px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.forme li{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.forme b{display:block;font:700 16.5px var(--display);color:var(--ink);margin-bottom:5px}
+.forme span{font-size:14.5px;color:var(--muted);line-height:1.45;display:block}
+.avviso{margin-top:20px;font-size:15.5px;color:var(--muted);max-width:46em}
+
+.domande{margin-top:34px;border-top:1px solid var(--line-2)}
+details{border-bottom:1px solid var(--line-2)}
+summary{cursor:pointer;list-style:none;padding:18px 34px 18px 0;font:700 18px/1.35 var(--display);color:var(--ink);letter-spacing:-.01em;position:relative}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";position:absolute;right:4px;top:14px;font:400 26px/1 var(--body);color:var(--muted)}
+details[open] summary::after{content:"–"}
+details p{padding:0 0 20px;max-width:46em;font-size:16px}
+
+footer.fine{margin-top:100px;border-top:1px solid var(--line-2);padding:30px 0 46px;font-size:14px;color:var(--muted);display:grid;gap:8px}
+footer.fine .marchio{font-size:17px}
+footer.fine .marchio img{width:28px;height:28px}
+
+@media (max-width:900px){
+  .apri{grid-template-columns:1fr;gap:34px;padding:22px 0 54px}
+  .scena{min-height:430px;max-width:560px}
+  .cap{grid-template-columns:1fr;padding-top:68px}.num{font-size:44px;margin-bottom:14px}
+  .due,.due.rov{grid-template-columns:1fr;gap:28px}
+  .passi,.dati{grid-template-columns:1fr}.mestieri{grid-template-columns:repeat(2,minmax(0,1fr))}.forme{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .top nav{display:none}.entra li:last-child{margin-left:0}
+}
+@media (max-width:520px){
+  body{font-size:16px}.wrap{width:min(1120px,100% - 32px)}
+  .scena{min-height:0;display:grid;gap:16px}.biglietto,.file{position:static;width:auto;transform:none}.freccia{display:none}
+  .file td:nth-child(2){min-width:9em}.file{overflow-x:auto}
+  .fatti{gap:12px}.fatti dt{font-size:25px}.mestieri,.forme{grid-template-columns:1fr}
+  .letture th{white-space:normal;width:auto}
+}
+</style>
+</head>
+<body>
+<a class="salta" href="#contenuto">Vai al contenuto</a>
+
+<div class="wrap">
+  <header class="top">
+    <a class="marchio" href="#" aria-label="Ordine Rapido, inizio pagina"><img src="marchio.svg" alt="" width="38" height="38">Ordine Rapido</a>
+    <nav aria-label="Sezioni">
+      <a href="#come">Come lavora</a>
+      <a href="#legge">Senza chiave API</a>
+      <a href="#averla">Come averla</a>
+      <a href="#domande">Domande</a>
+    </nav>
+  </header>
+
+  <main id="contenuto">
+  <section class="apri" aria-labelledby="titolo">
+    <div>
+      <p class="occhiello">Per agenti di commercio · <b>gratuito e libero</b></p>
+      <h1 id="titolo">L'ordine arriva come capita. <span>Nel gestionale entra come deve.</span></h1>
+      <p class="sotto">Ordine Rapido prende quello che ti manda il cliente, un PDF, un Excel, un messaggio o la foto di un buono, e lo trasforma nel file che il tuo gestionale importa. Con i codici che nel gestionale esistono già, e senza ribattere niente.</p>
+      <div class="azioni">
+        <a class="bottone" href="#come">Guarda come lavora
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14m0 0-6-6m6 6 6-6"/></svg></a>
+        <a class="piano scarica" href="#averla">Come averla</a>
+      </div>
+      <dl class="fatti">
+        <div><dt>0</dt><dd>chiavi API da comprare: legge da sola, sul tuo computer</dd></div>
+        <div><dt>0</dt><dd>codici inventati: nel file solo quelli del tuo archivio</dd></div>
+        <div><dt>3</dt><dd>schermate, sempre le stesse: carica, controlla, esporta</dd></div>
+      </dl>
+    </div>
+
+    <div class="scena" role="img" aria-label="Un messaggio del cliente, scritto alla buona e con una correzione, diventa un file ordinato con codici, colli e quantità.">
+      <div class="biglietto" aria-hidden="true">
+        <small>Messaggio del cliente</small>
+        Ciao, per giovedì mi servono:<br>
+        <s>6</s> cartoni di passata 700<br>
+        2 ct polpa 400<br>
+        <mark>anzi la passata fai 8</mark><br>
+        e 1 cartone di ceci in omaggio
+      </div>
+      <svg class="freccia" viewBox="0 0 120 110" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10c46 2 78 26 86 76"/><path d="M78 70l17 17 12-21"/></svg>
+      <div class="file" aria-hidden="true">
+        <header><i></i>ordine_MARKET-FANTASIA_2026-11-27.csv</header>
+        <table>
+          <thead><tr><th>Codice</th><th>Descrizione</th><th>Colli</th><th>Pezzi</th></tr></thead>
+          <tbody>
+            <tr><td><span class="si">✓</span>300101</td><td>Passata di pomodoro bottiglia gr 700</td><td>8</td><td>96</td></tr>
+            <tr><td><span class="si">✓</span>300102</td><td>Polpa di pomodoro latta gr 400</td><td>2</td><td>48</td></tr>
+            <tr><td><span class="si">✓</span>300201</td><td>Ceci lessati latta gr 400 <span class="dono">omaggio</span></td><td>1</td><td>24</td></tr>
+          </tbody>
+        </table>
+        <footer><span>3 righe · 11 colli · 168 pezzi</span><b>Tutti i codici esistono nel gestionale</b></footer>
+      </div>
+    </div>
+  </section>
+  </main>
+</div>
+
+<div class="entra">
+  <div class="wrap">
+    <ul aria-label="Che cosa puoi caricare">
+      <li>Entra così:</li><li>PDF</li><li>Excel</li><li>CSV</li><li>mail</li><li>WhatsApp</li><li>foto del buono</li><li>scansioni</li>
+      <li>Esce un file solo, fatto come lo vuole il gestionale.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <section class="cap" id="come" aria-labelledby="h-modello">
+    <div class="num" aria-hidden="true">01</div>
+    <div>
+      <h2 id="h-modello">Prima di tutto le fai vedere il file che vuole il tuo gestionale.</h2>
+      <p class="attacco">Ogni gestionale importa gli ordini a modo suo. Invece di spiegarglielo a parole, carichi un suo file di esempio: Ordine Rapido capisce da solo com'è fatto e da quel momento lo compila uguale.</p>
+      <div class="due">
+        <ul class="punti">
+          <li><b>Riconosce le colonne dal nome</b><span>Codice articolo, quantità, prezzo, sconti, numero d'ordine, cliente: le ritrova anche se si chiamano «Qta», «Q.tà» o «Pezzi».</span></li>
+          <li><b>Copia il formato</b><span>Separatore, virgola o punto nei decimali, date, codifica: li ricava dalle righe di esempio. CSV oppure Excel.</span></li>
+          <li><b>Rispetta le colonne «strane»</b><span>Quelle che il gestionale vuole sempre uguali, come il tipo di documento o il codice agente, diventano un valore fisso.</span></li>
+          <li><b>Decidi tu</b><span>Prima di usarlo vedi che cosa finirà in ogni colonna, e lo correggi con un clic.</span></li>
+        </ul>
+        <figure class="finestra">
+          <img src="img/modello.png" alt="Il riquadro «Modello del gestionale»: per ogni colonna del file di esempio l'app mostra che cosa ci metterà." loading="lazy">
+          <figcaption>Un file di esempio con dieci colonne: otto riconosciute dal nome, due a valore fisso.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="cap" aria-labelledby="h-archivio">
+    <div class="num" aria-hidden="true">02</div>
+    <div>
+      <h2 id="h-archivio">Poi le dai l'archivio. Da lì in poi non inventa più niente.</h2>
+      <p class="attacco">Esporti dal gestionale gli elenchi di articoli, clienti e case mandanti e li carichi una volta. Ogni riga di ogni ordine viene confrontata con quegli elenchi: è questo che evita i codici nuovi creati per sbaglio durante l'importazione.</p>
+      <div class="due rov">
+        <div class="stati">
+          <div class="stato"><span class="pill ok">✓ In archivio</span><b>Trovata per codice o per EAN</b><p>Anche con qualche zero in più o in meno. Nel file finisce il codice del gestionale, non quello scritto dal cliente.</p></div>
+          <div class="stato"><span class="pill forse">? Da confermare</span><b>Trovata per descrizione</b><p>«Panetti di burro da 250» somiglia a un articolo solo: l'app lo propone, ma non vale finché non lo confermi. La volta dopo se lo ricorda.</p></div>
+          <div class="stato"><span class="pill no">Non in archivio</span><b>Nessun articolo corrisponde</b><p>La cerchi a mano oppure la togli. Finché resta così, il file non esce.</p></div>
+        </div>
+        <ul class="punti">
+          <li><b>Cliente e mandante li riconosce da soli</b><span>Dalla partita IVA o dal nome scritto nel documento, cercati tra quelli del tuo archivio.</span></li>
+          <li><b>I totali vengono ricontrollati</b><span>Colli, pezzi e importo calcolati sulle righe si confrontano con quelli scritti sul documento del cliente.</span></li>
+          <li><b>Sa quanti pezzi stanno in un cartone</b><span>Se il cliente ordina «6 cartoni» e l'archivio dice 12 pezzi per collo, la quantità la calcola lei.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="cap" aria-labelledby="h-passi">
+    <div class="num" aria-hidden="true">03</div>
+    <div>
+      <h2 id="h-passi">Da quel momento, ogni ordine sono tre schermate.</h2>
+      <p class="attacco">Sempre le stesse, nello stesso ordine. Dopo il primo giorno non c'è più niente da imparare.</p>
+      <figure class="finestra grande">
+        <img src="img/controlla.png" width="1770" height="1140" alt="La schermata «Controlla» con un ordine di cinque righe, tutte collegate all'archivio, e i totali uguali a quelli del documento." loading="lazy">
+        <figcaption>La schermata «Controlla»: in alto che cosa non torna, sotto i dati dell'ordine e le righe con il loro stato.</figcaption>
+      </figure>
+      <div class="passi">
+        <figure>
+          <img src="img/carica.png" width="1770" height="1140" alt="La schermata «Carica» con il riquadro in cui trascinare il file e quello in cui incollare il messaggio." loading="lazy">
+          <h3><i>1</i>Carica</h3>
+          <p>Trascini il file oppure incolli il messaggio. Anche più file dello stesso ordine.</p>
+        </figure>
+        <figure>
+          <img src="img/controlla.png" width="1770" height="1140" alt="" loading="lazy">
+          <h3><i>2</i>Controlla</h3>
+          <p>Vedi subito che cosa è a posto e che cosa va guardato: righe da confermare, omaggi, totali diversi.</p>
+        </figure>
+        <figure>
+          <img src="img/esporta.png" width="1770" height="1140" alt="La schermata «Esporta» con il file pronto, il suo nome e i pulsanti per scaricarlo o copiare le righe." loading="lazy">
+          <h3><i>3</i>Esporta</h3>
+          <p>Scarichi il file, oppure copi le righe, e lo importi nel gestionale.</p>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="cap" id="legge" aria-labelledby="h-legge">
+    <div class="num" aria-hidden="true">04</div>
+    <div>
+      <h2 id="h-legge">Legge da sola. Senza chiave API, senza internet, senza costi.</h2>
+      <p class="attacco">Non c'è un servizio a cui mandare i documenti dei tuoi clienti. La lettura avviene sul tuo computer, con regole che partono dal tuo archivio. Funziona anche su un PC non recente.</p>
+      <div class="due">
+        <table class="letture">
+          <tbody>
+            <tr><th scope="row">Excel e CSV</th><td>Trova la riga con i nomi delle colonne e incolonna codici, colli, quantità, prezzi, sconti e importi.</td></tr>
+            <tr><th scope="row">PDF</th><td>Legge il testo e la sua posizione sulla pagina: è la posizione a dire in quale colonna sta un numero. Anche su più pagine.</td></tr>
+            <tr><th scope="row">Messaggi e mail</th><td>Capisce «6 cartoni di…», «passata 10 ct», le tabelle scritte a spazi e le correzioni più comuni: «anzi fai 12», «togli i borlotti».</td></tr>
+            <tr><th scope="row">Foto e scansioni</th><td>Riconosce i caratteri dei documenti stampati, anche fotografati un po' storti. Le correzioni a penna sui numeri di solito le prende.</td></tr>
+          </tbody>
+        </table>
+        <div>
+          <div class="riquadro">
+            <h3>Dove serve ancora il tuo occhio</h3>
+            <ul>
+              <li>La scrittura a mano viene letta male: qualche riga può mancare. L'app lo dice ogni volta che legge una foto.</li>
+              <li>Quando deduce qualcosa (un omaggio, una quantità senza unità, una correzione) lo scrive tra le note di lettura.</li>
+              <li>Ogni ordine passa dalla schermata «Controlla» prima di diventare un file.</li>
+            </ul>
+          </div>
+          <div class="riquadro tenue">
+            <h3>Vuoi di più? Puoi aggiungere Claude</h3>
+            <p>Per le calligrafie difficili e i documenti impaginati in modo insolito puoi far leggere a Claude, con la tua chiave API di Anthropic. È una scelta nelle impostazioni, non un obbligo: senza chiave l'app fa già tutto il resto.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cap" aria-labelledby="h-mestieri">
+    <div class="num" aria-hidden="true">05</div>
+    <div>
+      <h2 id="h-mestieri">Va bene per ogni tipo di lavoro. Cambiano i dati, non l'app.</h2>
+      <p class="attacco">Ordine Rapido non sa niente di pasta o di bulloni: sa leggere un ordine e confrontarlo con un archivio. Quello che vendi lo decidono i file che le carichi.</p>
+      <div class="mestieri">
+        <div><b>Alimentari e bevande</b><span>Cartoni, pezzi per collo, sconti in cascata, merce in omaggio. <code>6 ct → 72 pz</code></span></div>
+        <div><b>Ferramenta e utensileria</b><span>Migliaia di codici simili: conta l'EAN, e l'abbinamento che confermi una volta resta.</span></div>
+        <div><b>Cosmetica e farmacia</b><span>Ordini con il codice del cliente al posto del tuo: l'app impara la corrispondenza.</span></div>
+        <div><b>Ricambi e componenti</b><span>Codici con zeri, trattini e barre: li ritrova anche se il cliente li scrive a modo suo.</span></div>
+        <div><b>Cartoleria e casa</b><span>Riordini settimanali mandati per messaggio, senza prezzi: bastano descrizione e quantità.</span></div>
+        <div><b>Più case mandanti</b><span>Un listino per ogni mandante nello stesso archivio. Lo stesso codice non si confonde.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cap" aria-labelledby="h-dati">
+    <div class="num" aria-hidden="true">06</div>
+    <div>
+      <h2 id="h-dati">Clienti, listini e ordini restano dove sono: da te.</h2>
+      <div class="dati">
+        <div><b>Nessun server</b><span>L'app gira sul tuo computer. Non c'è un sito a cui iscriversi né un account da creare.</span></div>
+        <div><b>Niente esce</b><span>Con la lettura sul dispositivo nessun documento viene inviato. Non ci sono statistiche d'uso né tracciamento.</span></div>
+        <div><b>Codice aperto</b><span>È software libero con licenza GPL-3.0: chiunque può controllare che cosa fa, riga per riga.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cap" id="averla" aria-labelledby="h-averla">
+    <div class="num" aria-hidden="true">07</div>
+    <div>
+      <h2 id="h-averla">Quattro forme, la stessa app.</h2>
+      <p class="attacco">È gratuita. Scegli la forma più comoda per il computer che usi.</p>
+      <ul class="forme">
+        <li><b>Windows</b><span>Si installa nel menu Start, oppure si avvia da un solo file senza installare.</span></li>
+        <li><b>Mac</b><span>Per i Mac con processore Apple e per quelli con processore Intel.</span></li>
+        <li><b>Linux</b><span>Un file AppImage: si avvia senza installare.</span></li>
+        <li><b>Un file solo</b><span>Una pagina da aprire con il browser, su qualsiasi sistema. Legge tutto tranne le foto.</span></li>
+      </ul>
+      <p class="avviso">La versione 1.0 è pronta e provata su Windows, Mac e Linux. La pagina pubblica da cui scaricarla è in preparazione: comparirà qui.</p>
+    </div>
+  </section>
+
+  <section class="cap" id="domande" aria-labelledby="h-domande">
+    <div class="num" aria-hidden="true">08</div>
+    <div>
+      <h2 id="h-domande">Quello che conviene sapere prima.</h2>
+      <div class="domande">
+        <details><summary>Quanto costa?</summary><p>Niente. È software libero e gratuito. Paghi qualcosa solo se scegli di far leggere gli ordini a Claude: in quel caso il costo di ogni lettura è addebitato da Anthropic alla tua chiave.</p></details>
+        <details><summary>Con quali gestionali funziona?</summary><p>Con quelli che importano gli ordini da un file CSV o Excel. Il file si adatta caricando un esempio del formato richiesto. È nata lavorando con GesACom, ma non dipende da un gestionale in particolare e non scrive mai dentro il gestionale: prepara il file, l'importazione la fai tu.</p></details>
+        <details><summary>Serve internet?</summary><p>No, se legge il tuo computer. Serve solo se scegli Claude.</p></details>
+        <details><summary>E se l'ordine è scritto a mano?</summary><p>La lettura sul computer riconosce bene i documenti stampati, meno la calligrafia. Con un biglietto scritto a penna trova di solito una parte delle righe e te lo segnala: puoi completarle tu, oppure far leggere a Claude.</p></details>
+        <details><summary>Posso provarla senza usare dati veri?</summary><p>Sì. C'è un ordine di esempio con dati di fantasia, e la cartella del progetto contiene archivi inventati per fare tutte le prove.</p></details>
+        <details><summary>Che cosa succede se sbaglia?</summary><p>Per questo c'è la schermata «Controlla». L'app trascrive e confronta, non decide al posto tuo: una riga che non corrisponde a un articolo del tuo archivio blocca l'esportazione, e ogni supposizione è scritta tra le note.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <footer class="fine">
+    <a class="marchio" href="#" aria-label="Ordine Rapido, inizio pagina"><img src="marchio.svg" alt="" width="28" height="28">Ordine Rapido</a>
+    <p>Software libero con licenza GNU GPL versione 3, distribuito senza alcuna garanzia: controlla sempre il file prima di importarlo. Copyright © 2026 Roberto Murenu.</p>
+    <p>Progetto indipendente. GesACom, Excel, Windows, macOS, Claude e gli altri nomi citati appartengono ai rispettivi proprietari. Gli esempi di questa pagina usano dati di fantasia.</p>
+  </footer>
+</div>
+</body>
+</html>
